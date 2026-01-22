@@ -5,11 +5,12 @@ import { PropertyEditClient } from './property-edit-client';
 export const dynamic = 'force-dynamic';
 
 interface PropertyEditPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function PropertyEditPage({ params }: PropertyEditPageProps) {
-  const property = await getProperty(params.id);
+  const { id } = await params;
+  const property = await getProperty(id);
 
   if (!property) {
     notFound();
