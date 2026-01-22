@@ -11,40 +11,19 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import Link from 'next/link';
+import { getDashboardStats, getRecentProspects, getUpcomingTasks } from '@/lib/database';
 
-// Demo data - replace with real data from Supabase
-const stats = {
-  totalEquity: 125000,
-  monthlyCashFlow: 850,
-  portfolioValue: 425000,
-  activeProspects: 3,
-  properties: 1,
-  cashOnCash: 8.2,
-};
+export const dynamic = 'force-dynamic';
 
-const recentProspects = [
-  {
-    id: '1',
-    address: '123 Main St',
-    city: 'Columbus',
-    list_price: 185000,
-    status: 'researching',
-  },
-  {
-    id: '2',
-    address: '456 Oak Ave',
-    city: 'Dublin',
-    list_price: 245000,
-    status: 'offer_made',
-  },
-];
+export default async function DashboardPage() {
+  const stats = await getDashboardStats();
+  const recentProspects = await getRecentProspects(5);
+  const upcomingTasks = await getUpcomingTasks();
 
-const upcomingTasks = [
-  { id: '1', task: 'Lease renewal due', property: '789 Elm St', date: '2024-02-15' },
-  { id: '2', task: 'HVAC maintenance scheduled', property: '789 Elm St', date: '2024-02-20' },
-];
+  const cashOnCash = stats.totalEquity > 0
+    ? ((stats.monthlyCashFlow * 12) / stats.totalEquity * 100).toFixed(1)
+    : '0.0';
 
-export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -67,7 +46,7 @@ export default function DashboardPage() {
               ${stats.portfolioValue.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats.properties} active property
+              {stats.totalProperties} active {stats.totalProperties === 1 ? 'property' : 'properties'}
             </p>
           </CardContent>
         </Card>
@@ -93,11 +72,11 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              +${stats.monthlyCashFlow.toLocaleString()}
+            <div className={`text-2xl font-bold ${stats.monthlyCashFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {stats.monthlyCashFlow >= 0 ? '+' : ''}${stats.monthlyCashFlow.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats.cashOnCash}% Cash-on-Cash
+              {cashOnCash}% Cash-on-Cash
             </p>
           </CardContent>
         </Card>
@@ -135,9 +114,10 @@ export default function DashboardPage() {
             {recentProspects.length > 0 ? (
               <div className="space-y-4">
                 {recentProspects.map((prospect) => (
-                  <div
+                  <Link
                     key={prospect.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
+                    href={`/prospects/${prospect.id}`}
+                    className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -146,18 +126,16 @@ export default function DashboardPage() {
                       <div>
                         <p className="font-medium">{prospect.address}</p>
                         <p className="text-sm text-muted-foreground">
-                          {prospect.city} - ${prospect.list_price.toLocaleString()}
+                          {prospect.city}, {prospect.state} - ${(prospect.list_price || 0).toLocaleString()}
                         </p>
                       </div>
                     </div>
                     <Badge
-                      variant={
-                        prospect.status === 'offer_made' ? 'default' : 'secondary'
-                      }
+                      variant={prospect.status === 'offer_made' ? 'default' : 'secondary'}
                     >
                       {prospect.status === 'offer_made' ? 'Offer Made' : 'Researching'}
                     </Badge>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,9 +17,10 @@ import {
   Loader2,
   ExternalLink,
   AlertCircle,
-  DollarSign,
+  Check,
   Link as LinkIcon,
 } from 'lucide-react';
+import { addProspectAction } from '../actions';
 
 interface SearchResult {
   mls_number: string;
@@ -47,6 +48,7 @@ function extractZpidFromUrl(url: string): string | null {
 }
 
 export default function ProspectSearchPage() {
+  const router = useRouter();
   const [searchType, setSearchType] = useState<'url' | 'location' | 'address'>('url');
   const [zillowUrl, setZillowUrl] = useState('');
   const [location, setLocation] = useState('');
@@ -55,6 +57,8 @@ export default function ProspectSearchPage() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
   const handleSearch = async () => {
     setIsLoading(true);
@@ -98,8 +102,36 @@ export default function ProspectSearchPage() {
   };
 
   const handleAddProspect = async (result: SearchResult) => {
-    // TODO: Save to Supabase
-    alert(`Added ${result.address} to prospects!`);
+    const id = result.mls_number || result.address;
+    setAddingId(id);
+
+    try {
+      const response = await addProspectAction({
+        mls_number: result.mls_number,
+        address: result.address,
+        city: result.city,
+        state: result.state,
+        zip: result.zip,
+        list_price: result.list_price,
+        property_type: result.property_type,
+        bedrooms: result.bedrooms,
+        bathrooms: result.bathrooms,
+        sqft: result.sqft,
+        lot_size: result.lot_size,
+        year_built: result.year_built,
+        days_on_market: result.days_on_market,
+      });
+
+      if (response.success) {
+        setAddedIds(prev => new Set(prev).add(id));
+      } else {
+        setError(response.error || 'Failed to add prospect');
+      }
+    } catch (err) {
+      setError('Failed to add prospect');
+    } finally {
+      setAddingId(null);
+    }
   };
 
   return (
@@ -331,10 +363,25 @@ export default function ProspectSearchPage() {
                           Zillow
                         </a>
                       </Button>
-                      <Button size="sm" onClick={() => handleAddProspect(result)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add to Prospects
-                      </Button>
+                      {addedIds.has(result.mls_number || result.address) ? (
+                        <Button size="sm" variant="outline" disabled className="text-green-600">
+                          <Check className="mr-2 h-4 w-4" />
+                          Added
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => handleAddProspect(result)}
+                          disabled={addingId === (result.mls_number || result.address)}
+                        >
+                          {addingId === (result.mls_number || result.address) ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Plus className="mr-2 h-4 w-4" />
+                          )}
+                          Add to Prospects
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
