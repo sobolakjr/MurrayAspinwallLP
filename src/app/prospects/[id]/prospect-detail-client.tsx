@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -131,6 +131,61 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
     return typeMap[type] || type;
   };
 
+  const formatValue = (value: unknown): string => {
+    if (value === null || value === undefined) return '-';
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    if (typeof value === 'number') {
+      // Format currency-like numbers
+      if (value >= 1000) return value.toLocaleString();
+      return value.toString();
+    }
+    if (typeof value === 'string') {
+      // Check if it's a date
+      if (value.match(/^\d{4}-\d{2}-\d{2}/)) {
+        return new Date(value).toLocaleDateString();
+      }
+      return value;
+    }
+    if (Array.isArray(value)) return value.join(', ');
+    return JSON.stringify(value);
+  };
+
+  const renderApiDataRows = (data: Record<string, unknown>, prefix = ''): React.ReactElement[] => {
+    const rows: React.ReactElement[] = [];
+
+    const sortedKeys = Object.keys(data).sort();
+
+    for (const key of sortedKeys) {
+      const value = data[key];
+      const displayKey = prefix ? `${prefix}.${key}` : key;
+
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        // For nested objects, add a header row and recurse
+        rows.push(
+          <tr key={displayKey} className="bg-muted/30">
+            <td colSpan={2} className="py-2 px-3 font-medium text-muted-foreground">
+              {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
+            </td>
+          </tr>
+        );
+        rows.push(...renderApiDataRows(value as Record<string, unknown>, displayKey));
+      } else {
+        rows.push(
+          <tr key={displayKey} className="border-b">
+            <td className="py-2 px-3 text-muted-foreground">
+              {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+            </td>
+            <td className="py-2 px-3 font-mono text-xs">
+              {formatValue(value)}
+            </td>
+          </tr>
+        );
+      }
+    }
+
+    return rows;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -232,19 +287,22 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
           </CardContent>
         </Card>
 
-        {/* Listing Info */}
+        {/* Pricing Info */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
-              Listing Info
+              Pricing Info
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm text-muted-foreground">List Price</p>
+              <p className="text-sm text-muted-foreground">Last Sale Price</p>
               <p className="text-3xl font-bold">
                 ${Number(prospect.list_price || 0).toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                From public records (not current listing)
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -564,6 +622,32 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
                     <p className="font-medium text-xs">{(prospect.api_data as any).legalDescription}</p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Raw API Data Table */}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Complete API Response
+                </CardTitle>
+                <CardDescription>All data fields returned from Rentcast API</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left py-2 px-3 font-medium w-1/3">Field</th>
+                        <th className="text-left py-2 px-3 font-medium">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {renderApiDataRows(prospect.api_data as Record<string, unknown>)}
+                    </tbody>
+                  </table>
+                </div>
               </CardContent>
             </Card>
           </>

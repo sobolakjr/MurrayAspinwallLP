@@ -19,7 +19,9 @@ CREATE TABLE properties (
   sqft INTEGER,
   lot_size DECIMAL(10,2),
   year_built INTEGER,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'sold', 'pending')),
+  status TEXT DEFAULT 'rented' CHECK (status IN ('rented', 'listed_rent', 'listed_sell', 'reno_changeover', 'listed_str')),
+  monthly_rent DECIMAL(10,2),
+  avg_nightly_rent DECIMAL(10,2),
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -116,10 +118,25 @@ CREATE TABLE tenants (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Bank Accounts
+CREATE TABLE bank_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  institution TEXT,
+  account_type TEXT DEFAULT 'checking' CHECK (account_type IN ('checking', 'savings', 'credit_card', 'investment', 'other')),
+  account_number_last4 TEXT,
+  current_balance DECIMAL(12,2),
+  is_default BOOLEAN DEFAULT false,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Transactions (income and expenses)
 CREATE TABLE transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
+  bank_account_id UUID REFERENCES bank_accounts(id) ON DELETE SET NULL,
   date DATE NOT NULL,
   amount DECIMAL(12,2) NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
@@ -201,6 +218,10 @@ CREATE TRIGGER tenants_updated_at
 
 CREATE TRIGGER maintenance_records_updated_at
   BEFORE UPDATE ON maintenance_records
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER bank_accounts_updated_at
+  BEFORE UPDATE ON bank_accounts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Row Level Security (enable when needed)
