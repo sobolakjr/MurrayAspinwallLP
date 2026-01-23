@@ -1,8 +1,48 @@
 'use server';
 
-import { createTransactions } from '@/lib/database';
+import { createTransaction, createTransactions } from '@/lib/database';
 import { revalidatePath } from 'next/cache';
 import type { Transaction } from '@/types';
+
+interface TransactionInput {
+  property_id: string | null;
+  date: string;
+  amount: number;
+  type: 'income' | 'expense';
+  category: string;
+  description: string;
+  vendor?: string;
+}
+
+export async function createTransactionAction(
+  input: TransactionInput
+): Promise<{ success: boolean; transaction?: Transaction; error?: string }> {
+  try {
+    const transaction = await createTransaction({
+      property_id: input.property_id === 'none' ? null : input.property_id,
+      date: input.date,
+      amount: input.amount,
+      type: input.type,
+      category: input.category,
+      description: input.description,
+      vendor: input.vendor || null,
+      imported_from: 'manual',
+      external_id: null,
+    });
+
+    if (!transaction) {
+      return { success: false, error: 'Failed to create transaction' };
+    }
+
+    revalidatePath('/banking');
+    revalidatePath('/');
+
+    return { success: true, transaction };
+  } catch (error) {
+    console.error('Error creating transaction:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
 
 interface ImportTransactionInput {
   property_id: string | null;
