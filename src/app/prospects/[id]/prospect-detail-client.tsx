@@ -28,9 +28,10 @@ import {
   Building,
   User,
   FileText,
+  RefreshCw,
 } from 'lucide-react';
 import type { Prospect, ProspectStatus } from '@/types';
-import { updateProspectAction, deleteProspectAction } from '../actions';
+import { updateProspectAction, deleteProspectAction, refreshApiDataAction } from '../actions';
 
 interface ProspectDetailClientProps {
   prospect: Prospect;
@@ -58,6 +59,31 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
   const [notes, setNotes] = useState(prospect.notes || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefreshApiData = async () => {
+    setIsRefreshing(true);
+    try {
+      const result = await refreshApiDataAction(
+        prospect.id,
+        prospect.address,
+        prospect.city,
+        prospect.state,
+        prospect.zip
+      );
+      if (result.success) {
+        router.refresh();
+      } else {
+        console.error('Failed to refresh:', result.error);
+        alert(result.error || 'Failed to refresh API data');
+      }
+    } catch (error) {
+      console.error('Error refreshing:', error);
+      alert('Failed to refresh API data');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -124,6 +150,18 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleRefreshApiData}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            {prospect.api_data ? 'Refresh Data' : 'Fetch API Data'}
+          </Button>
           <Button variant="outline" asChild>
             <Link href={`/calculator?prospect=${prospect.id}`}>
               <Calculator className="mr-2 h-4 w-4" />

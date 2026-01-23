@@ -1,6 +1,7 @@
 'use server';
 
 import { createProspect, updateProspect, deleteProspect } from '@/lib/database';
+import { searchPropertyByAddress } from '@/lib/rentcast';
 import { revalidatePath } from 'next/cache';
 import type { Prospect } from '@/types';
 
@@ -95,5 +96,42 @@ export async function deleteProspectAction(
   } catch (error) {
     console.error('Error deleting prospect:', error);
     return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function refreshApiDataAction(
+  id: string,
+  address: string,
+  city: string,
+  state: string,
+  zip: string
+): Promise<{ success: boolean; prospect?: Prospect; error?: string }> {
+  try {
+    // Build full address for API lookup
+    const fullAddress = `${address}, ${city}, ${state} ${zip}`;
+
+    // Fetch fresh data from Rentcast
+    const result = await searchPropertyByAddress(fullAddress);
+
+    if (!result) {
+      return { success: false, error: 'Property not found in Rentcast' };
+    }
+
+    // Update prospect with new API data
+    const prospect = await updateProspect(id, {
+      api_data: result.api_data as unknown as Record<string, unknown>,
+    });
+
+    if (!prospect) {
+      return { success: false, error: 'Failed to update prospect' };
+    }
+
+    revalidatePath('/prospects');
+    revalidatePath(`/prospects/${id}`);
+
+    return { success: true, prospect };
+  } catch (error) {
+    console.error('Error refreshing API data:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'An unexpected error occurred' };
   }
 }
