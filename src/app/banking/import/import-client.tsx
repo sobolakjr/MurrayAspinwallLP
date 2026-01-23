@@ -103,11 +103,13 @@ export function ImportClient({ properties }: ImportClientProps) {
     return null;
   };
 
-  const parseAmount = (str: string): number => {
-    if (!str) return 0;
-    const cleaned = str.replace(/[$,\s]/g, '');
+  const parseAmount = (str: string): { amount: number; isNegative: boolean } => {
+    if (!str) return { amount: 0, isNegative: false };
+    // Handle PNC format like "- $155000" or "+ $1250"
+    const isNegative = str.includes('-');
+    const cleaned = str.replace(/[$,\s+-]/g, '');
     const num = parseFloat(cleaned);
-    return isNaN(num) ? 0 : num;
+    return { amount: isNaN(num) ? 0 : Math.abs(num), isNegative };
   };
 
   const parseCSV = (text: string): ParsedTransaction[] => {
@@ -120,10 +122,13 @@ export function ImportClient({ properties }: ImportClientProps) {
     // Find column indices for common bank formats
     const dateIdx = headers.findIndex(h => h.includes('date'));
     const descIdx = headers.findIndex(h => h.includes('description') || h.includes('memo') || h.includes('payee'));
-    const amountIdx = headers.findIndex(h => h === 'amount' || h.includes('transaction amount'));
+    const amountIdx = headers.findIndex(h => h === 'amount' || h.includes('transaction amount') || (h === 'amount' && !headers.some(x => x.includes('debit') || x.includes('credit'))));
     const debitIdx = headers.findIndex(h => h.includes('debit') || h.includes('withdrawal') || h.includes('withdrawals'));
     const creditIdx = headers.findIndex(h => h.includes('credit') || h.includes('deposit') || h.includes('deposits'));
     const balanceIdx = headers.findIndex(h => h.includes('balance'));
+
+    // Check if this is PNC format (has single Amount column with +/- prefix)
+    const isPNCFormat = amountIdx !== -1 && debitIdx === -1 && creditIdx === -1;
 
     // Debug: if no recognized columns, try generic parsing
     const hasKnownColumns = dateIdx !== -1 || descIdx !== -1 || amountIdx !== -1 || debitIdx !== -1 || creditIdx !== -1;
@@ -149,24 +154,25 @@ export function ImportClient({ properties }: ImportClientProps) {
           description = parts[descIdx].replace(/^"|"$/g, '');
         }
 
-        // Check for separate debit/credit columns (PNC format)
+        // Check for separate debit/credit columns
         if (debitIdx !== -1 || creditIdx !== -1) {
-          const debitAmt = debitIdx !== -1 ? parseAmount(parts[debitIdx]) : 0;
-          const creditAmt = creditIdx !== -1 ? parseAmount(parts[creditIdx]) : 0;
+          const debitResult = debitIdx !== -1 ? parseAmount(parts[debitIdx]) : { amount: 0, isNegative: false };
+          const creditResult = creditIdx !== -1 ? parseAmount(parts[creditIdx]) : { amount: 0, isNegative: false };
 
-          if (creditAmt > 0) {
-            amount = creditAmt;
+          if (creditResult.amount > 0) {
+            amount = creditResult.amount;
             type = 'income';
-          } else if (debitAmt > 0) {
-            amount = debitAmt;
+          } else if (debitResult.amount > 0) {
+            amount = debitResult.amount;
             type = 'expense';
           }
         }
-        // Check for single amount column
+        // Check for single amount column (PNC format with +/- prefix like "- $155000" or "+ $1250")
         else if (amountIdx !== -1 && parts[amountIdx]) {
-          const rawAmount = parseAmount(parts[amountIdx]);
-          amount = Math.abs(rawAmount);
-          type = rawAmount >= 0 ? 'income' : 'expense';
+          const result = parseAmount(parts[amountIdx]);
+          amount = result.amount;
+          // In PNC format: "-" means withdrawal/expense, "+" means deposit/income
+          type = result.isNegative ? 'expense' : 'income';
         }
       } else {
         // Generic parsing - look for date and amounts in each part
@@ -179,12 +185,12 @@ export function ImportClient({ properties }: ImportClientProps) {
             }
           }
 
-          const numMatch = part.replace(/[$,]/g, '').match(/^-?\d+\.?\d*$/);
-          if (numMatch && !amount) {
-            const num = parseFloat(numMatch[0]);
-            if (num !== 0) {
-              amount = Math.abs(num);
-              type = num < 0 ? 'expense' : 'income';
+          // Try to parse as amount (handles formats like "- $155000" or "$1250")
+          if (!amount) {
+            const result = parseAmount(part);
+            if (result.amount > 0) {
+              amount = result.amount;
+              type = result.isNegative ? 'expense' : 'income';
               continue;
             }
           }
@@ -197,8 +203,8 @@ export function ImportClient({ properties }: ImportClientProps) {
         // If no description found, use the longest non-numeric part
         if (!description) {
           description = parts.reduce((a, b) => {
-            const aIsNum = /^-?\d*\.?\d+$/.test(a.replace(/[$,]/g, ''));
-            const bIsNum = /^-?\d*\.?\d+$/.test(b.replace(/[$,]/g, ''));
+            const aIsNum = /^-?\d*\.?\d+$/.test(a.replace(/[$,\s+-]/g, ''));
+            const bIsNum = /^-?\d*\.?\d+$/.test(b.replace(/[$,\s+-]/g, ''));
             if (aIsNum && !bIsNum) return b;
             if (!aIsNum && bIsNum) return a;
             return a.length > b.length ? a : b;
