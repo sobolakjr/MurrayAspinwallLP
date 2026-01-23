@@ -67,85 +67,184 @@ export function ImportClient({ properties }: ImportClientProps) {
     }
   };
 
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
+  const parseDate = (dateStr: string): string | null => {
+    // Try MM/DD/YYYY or MM/DD/YY
+    const slashMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (slashMatch) {
+      const [, m, d, y] = slashMatch;
+      const year = y.length === 2 ? `20${y}` : y;
+      return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+    // Try YYYY-MM-DD
+    const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      return dateStr;
+    }
+    return null;
+  };
+
+  const parseAmount = (str: string): number => {
+    if (!str) return 0;
+    const cleaned = str.replace(/[$,\s]/g, '');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+  };
+
   const parseCSV = (text: string): ParsedTransaction[] => {
     const lines = text.split('\n').filter(line => line.trim());
     if (lines.length < 2) return [];
 
-    const header = lines[0].toLowerCase();
-    const hasHeader = header.includes('date') || header.includes('description') || header.includes('amount');
+    const headerLine = lines[0];
+    const headers = parseCSVLine(headerLine).map(h => h.toLowerCase().replace(/['"]/g, ''));
 
-    const dataLines = hasHeader ? lines.slice(1) : lines;
+    // Find column indices for common bank formats
+    const dateIdx = headers.findIndex(h => h.includes('date'));
+    const descIdx = headers.findIndex(h => h.includes('description') || h.includes('memo') || h.includes('payee'));
+    const amountIdx = headers.findIndex(h => h === 'amount' || h.includes('transaction amount'));
+    const debitIdx = headers.findIndex(h => h.includes('debit') || h.includes('withdrawal') || h.includes('withdrawals'));
+    const creditIdx = headers.findIndex(h => h.includes('credit') || h.includes('deposit') || h.includes('deposits'));
+    const balanceIdx = headers.findIndex(h => h.includes('balance'));
+
+    // Debug: if no recognized columns, try generic parsing
+    const hasKnownColumns = dateIdx !== -1 || descIdx !== -1 || amountIdx !== -1 || debitIdx !== -1 || creditIdx !== -1;
+
     const parsed: ParsedTransaction[] = [];
 
-    for (const line of dataLines) {
-      // Handle CSV with quotes
-      const parts = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
-      const cleanParts = parts.map(p => p.replace(/^"|"$/g, '').trim());
+    for (let i = 1; i < lines.length; i++) {
+      const parts = parseCSVLine(lines[i]);
+      if (parts.length < 2) continue;
 
-      if (cleanParts.length >= 3) {
-        // Try to find date, description, and amount
-        let date = '';
-        let description = '';
-        let amount = 0;
+      let date = '';
+      let description = '';
+      let amount = 0;
+      let type: 'income' | 'expense' = 'expense';
 
-        for (const part of cleanParts) {
-          // Check if it's a date
-          if (!date && /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(part)) {
-            const [m, d, y] = part.split('/');
-            const year = y.length === 2 ? `20${y}` : y;
-            date = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      if (hasKnownColumns) {
+        // Use column indices
+        if (dateIdx !== -1 && parts[dateIdx]) {
+          date = parseDate(parts[dateIdx]) || '';
+        }
+
+        if (descIdx !== -1 && parts[descIdx]) {
+          description = parts[descIdx].replace(/^"|"$/g, '');
+        }
+
+        // Check for separate debit/credit columns (PNC format)
+        if (debitIdx !== -1 || creditIdx !== -1) {
+          const debitAmt = debitIdx !== -1 ? parseAmount(parts[debitIdx]) : 0;
+          const creditAmt = creditIdx !== -1 ? parseAmount(parts[creditIdx]) : 0;
+
+          if (creditAmt > 0) {
+            amount = creditAmt;
+            type = 'income';
+          } else if (debitAmt > 0) {
+            amount = debitAmt;
+            type = 'expense';
           }
-          // Check if it's an amount
-          else if (!amount) {
-            const numMatch = part.replace(/[$,]/g, '').match(/-?\d+\.?\d*/);
-            if (numMatch) {
-              const num = parseFloat(numMatch[0]);
-              if (num !== 0) {
-                amount = Math.abs(num);
-              }
+        }
+        // Check for single amount column
+        else if (amountIdx !== -1 && parts[amountIdx]) {
+          const rawAmount = parseAmount(parts[amountIdx]);
+          amount = Math.abs(rawAmount);
+          type = rawAmount >= 0 ? 'income' : 'expense';
+        }
+      } else {
+        // Generic parsing - look for date and amounts in each part
+        for (const part of parts) {
+          if (!date) {
+            const parsedDate = parseDate(part);
+            if (parsedDate) {
+              date = parsedDate;
+              continue;
             }
           }
-          // Otherwise it might be the description
-          else if (!description && part.length > 3 && !/^\d+\.?\d*$/.test(part)) {
+
+          const numMatch = part.replace(/[$,]/g, '').match(/^-?\d+\.?\d*$/);
+          if (numMatch && !amount) {
+            const num = parseFloat(numMatch[0]);
+            if (num !== 0) {
+              amount = Math.abs(num);
+              type = num < 0 ? 'expense' : 'income';
+              continue;
+            }
+          }
+
+          if (!description && part.length > 3 && !parseDate(part)) {
             description = part;
           }
         }
 
-        // If we still don't have description, use the longest part
+        // If no description found, use the longest non-numeric part
         if (!description) {
-          description = cleanParts.reduce((a, b) => a.length > b.length ? a : b, '');
+          description = parts.reduce((a, b) => {
+            const aIsNum = /^-?\d*\.?\d+$/.test(a.replace(/[$,]/g, ''));
+            const bIsNum = /^-?\d*\.?\d+$/.test(b.replace(/[$,]/g, ''));
+            if (aIsNum && !bIsNum) return b;
+            if (!aIsNum && bIsNum) return a;
+            return a.length > b.length ? a : b;
+          }, '');
+        }
+      }
+
+      if (date && description && amount > 0) {
+        // Auto-categorize based on description
+        const descLower = description.toLowerCase();
+        let category = type === 'income' ? 'Other Income' : 'Other Expense';
+
+        if (descLower.includes('rent') || descLower.includes('tenant')) {
+          category = 'Rent';
+          type = 'income';
+        } else if (descLower.includes('zelle') || descLower.includes('venmo') || descLower.includes('transfer from')) {
+          category = 'Other Income';
+          type = 'income';
+        } else if (descLower.includes('mortgage') || descLower.includes('loan pmt') || descLower.includes('rocket')) {
+          category = 'Mortgage';
+          type = 'expense';
+        } else if (descLower.includes('insurance') || descLower.includes('allstate') || descLower.includes('state farm') || descLower.includes('geico')) {
+          category = 'Insurance';
+          type = 'expense';
+        } else if (descLower.includes('home depot') || descLower.includes('lowes') || descLower.includes('menards') || descLower.includes('repair')) {
+          category = 'Repairs';
+          type = 'expense';
+        } else if (descLower.includes('electric') || descLower.includes('gas') || descLower.includes('water') || descLower.includes('utility') || descLower.includes('duke energy') || descLower.includes('aep')) {
+          category = 'Utilities';
+          type = 'expense';
+        } else if (descLower.includes('tax') || descLower.includes('county treasurer')) {
+          category = 'Property Tax';
+          type = 'expense';
+        } else if (descLower.includes('hoa') || descLower.includes('association')) {
+          category = 'HOA';
+          type = 'expense';
         }
 
-        if (date && description && amount > 0) {
-          // Try to auto-categorize
-          const descLower = description.toLowerCase();
-          let category = 'Other';
-          let type: 'income' | 'expense' = 'expense';
-
-          if (descLower.includes('rent') || descLower.includes('tenant')) {
-            category = 'Rent';
-            type = 'income';
-          } else if (descLower.includes('mortgage') || descLower.includes('loan')) {
-            category = 'Mortgage';
-          } else if (descLower.includes('insurance')) {
-            category = 'Insurance';
-          } else if (descLower.includes('home depot') || descLower.includes('lowes') || descLower.includes('repair')) {
-            category = 'Repairs';
-          } else if (descLower.includes('electric') || descLower.includes('gas') || descLower.includes('water') || descLower.includes('utility')) {
-            category = 'Utilities';
-          } else if (descLower.includes('tax')) {
-            category = 'Property Tax';
-          }
-
-          parsed.push({
-            date,
-            description,
-            amount,
-            type,
-            category,
-            selected: true,
-          });
-        }
+        parsed.push({
+          date,
+          description,
+          amount,
+          type,
+          category,
+          selected: true,
+        });
       }
     }
 
