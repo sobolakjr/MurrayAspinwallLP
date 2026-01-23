@@ -39,6 +39,7 @@ interface SearchResult {
   longitude?: number;
   owner_occupied?: boolean;
   last_sale_date?: string;
+  api_data?: Record<string, unknown>;
 }
 
 export default function ProspectSearchPage() {
@@ -106,6 +107,7 @@ export default function ProspectSearchPage() {
         lot_size: result.lot_size,
         year_built: result.year_built,
         days_on_market: result.days_on_market,
+        api_data: result.api_data,
       });
 
       if (response.success) {

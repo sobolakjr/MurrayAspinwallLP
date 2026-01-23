@@ -3,33 +3,77 @@
 const RENTCAST_API_KEY = process.env.RENTCAST_API_KEY || '';
 const RENTCAST_BASE_URL = 'https://api.rentcast.io/v1';
 
-// Rentcast API response types
-interface RentcastProperty {
+// Full Rentcast API response type
+export interface RentcastApiResponse {
   id: string;
   formattedAddress: string;
   addressLine1: string;
-  addressLine2?: string;
+  addressLine2?: string | null;
   city: string;
   state: string;
+  stateFips?: string;
   zipCode: string;
   county?: string;
+  countyFips?: string;
+  latitude?: number;
+  longitude?: number;
   propertyType: string;
   bedrooms: number;
   bathrooms: number;
   squareFootage: number;
   lotSize?: number;
   yearBuilt: number;
+  assessorID?: string;
+  legalDescription?: string;
   lastSaleDate?: string;
   lastSalePrice?: number;
   ownerOccupied?: boolean;
-  latitude?: number;
-  longitude?: number;
-  taxAssessments?: Array<{
+  features?: {
+    architectureType?: string;
+    exteriorType?: string;
+    floorCount?: number;
+    garage?: boolean;
+    garageSpaces?: number;
+    garageType?: string;
+    heating?: boolean;
+    heatingType?: string;
+    cooling?: boolean;
+    coolingType?: string;
+    roofType?: string;
+    roomCount?: number;
+    unitCount?: number;
+    pool?: boolean;
+    fireplace?: boolean;
+  };
+  taxAssessments?: Record<string, {
     year: number;
     value: number;
     land?: number;
     improvements?: number;
   }>;
+  propertyTaxes?: Record<string, {
+    year: number;
+    total: number;
+  }>;
+  history?: Record<string, {
+    event: string;
+    date: string;
+    price?: number;
+  }>;
+  owner?: {
+    names?: string[];
+    type?: string;
+    mailingAddress?: {
+      id?: string;
+      formattedAddress?: string;
+      addressLine1?: string;
+      addressLine2?: string | null;
+      city?: string;
+      state?: string;
+      stateFips?: string;
+      zipCode?: string;
+    };
+  };
 }
 
 // Compatible interface with existing code
@@ -55,6 +99,8 @@ export interface PropertySearchResult {
   longitude?: number;
   owner_occupied?: boolean;
   last_sale_date?: string;
+  // Raw API data for detailed view
+  api_data?: RentcastApiResponse;
 }
 
 // Search property by address
@@ -87,7 +133,7 @@ export async function searchPropertyByAddress(
   const data = await response.json();
 
   // API returns array, get first result
-  const prop: RentcastProperty = Array.isArray(data) ? data[0] : data;
+  const prop: RentcastApiResponse = Array.isArray(data) ? data[0] : data;
 
   if (!prop || !prop.id) {
     return null;
@@ -168,7 +214,7 @@ export async function getPropertyById(
     throw new Error(`Rentcast API error: ${response.status} - ${error}`);
   }
 
-  const prop: RentcastProperty = await response.json();
+  const prop: RentcastApiResponse = await response.json();
 
   if (!prop || !prop.id) {
     return null;
@@ -178,7 +224,7 @@ export async function getPropertyById(
 }
 
 // Map Rentcast property to our standard interface
-function mapRentcastToSearchResult(prop: RentcastProperty): PropertySearchResult {
+function mapRentcastToSearchResult(prop: RentcastApiResponse): PropertySearchResult {
   return {
     mls_number: prop.id,
     address: prop.addressLine1 || prop.formattedAddress || '',
@@ -200,6 +246,7 @@ function mapRentcastToSearchResult(prop: RentcastProperty): PropertySearchResult
     longitude: prop.longitude,
     owner_occupied: prop.ownerOccupied,
     last_sale_date: prop.lastSaleDate,
+    api_data: prop, // Include full raw API response
   };
 }
 

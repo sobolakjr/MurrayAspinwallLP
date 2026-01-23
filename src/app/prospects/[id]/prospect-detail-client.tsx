@@ -24,6 +24,10 @@ import {
   Trash2,
   Save,
   Loader2,
+  Database,
+  Building,
+  User,
+  FileText,
 } from 'lucide-react';
 import type { Prospect, ProspectStatus } from '@/types';
 import { updateProspectAction, deleteProspectAction } from '../actions';
@@ -278,6 +282,254 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
             </Button>
           </CardContent>
         </Card>
+
+        {/* API Data - Only show if available */}
+        {prospect.api_data && (
+          <>
+            {/* Features */}
+            {(prospect.api_data as any).features && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building className="h-5 w-5" />
+                    Property Features
+                  </CardTitle>
+                  <CardDescription>Details from property records</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {(prospect.api_data as any).features.architectureType && (
+                      <div>
+                        <p className="text-muted-foreground">Architecture</p>
+                        <p className="font-medium">{(prospect.api_data as any).features.architectureType}</p>
+                      </div>
+                    )}
+                    {(prospect.api_data as any).features.exteriorType && (
+                      <div>
+                        <p className="text-muted-foreground">Exterior</p>
+                        <p className="font-medium">{(prospect.api_data as any).features.exteriorType}</p>
+                      </div>
+                    )}
+                    {(prospect.api_data as any).features.roofType && (
+                      <div>
+                        <p className="text-muted-foreground">Roof</p>
+                        <p className="font-medium">{(prospect.api_data as any).features.roofType}</p>
+                      </div>
+                    )}
+                    {(prospect.api_data as any).features.floorCount && (
+                      <div>
+                        <p className="text-muted-foreground">Floors</p>
+                        <p className="font-medium">{(prospect.api_data as any).features.floorCount}</p>
+                      </div>
+                    )}
+                    {(prospect.api_data as any).features.roomCount && (
+                      <div>
+                        <p className="text-muted-foreground">Total Rooms</p>
+                        <p className="font-medium">{(prospect.api_data as any).features.roomCount}</p>
+                      </div>
+                    )}
+                    {(prospect.api_data as any).features.garage !== undefined && (
+                      <div>
+                        <p className="text-muted-foreground">Garage</p>
+                        <p className="font-medium">
+                          {(prospect.api_data as any).features.garage
+                            ? `Yes${(prospect.api_data as any).features.garageSpaces ? ` (${(prospect.api_data as any).features.garageSpaces} spaces)` : ''}`
+                            : 'No'}
+                        </p>
+                      </div>
+                    )}
+                    {(prospect.api_data as any).features.heatingType && (
+                      <div>
+                        <p className="text-muted-foreground">Heating</p>
+                        <p className="font-medium">{(prospect.api_data as any).features.heatingType}</p>
+                      </div>
+                    )}
+                    {(prospect.api_data as any).features.coolingType && (
+                      <div>
+                        <p className="text-muted-foreground">Cooling</p>
+                        <p className="font-medium">{(prospect.api_data as any).features.coolingType}</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Owner Info */}
+            {(prospect.api_data as any).owner && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Owner Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {(prospect.api_data as any).owner.names && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Owner Name(s)</p>
+                      <p className="font-medium">{(prospect.api_data as any).owner.names.join(', ')}</p>
+                    </div>
+                  )}
+                  {(prospect.api_data as any).owner.type && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Owner Type</p>
+                      <p className="font-medium">{(prospect.api_data as any).owner.type}</p>
+                    </div>
+                  )}
+                  {(prospect.api_data as any).owner.mailingAddress && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Mailing Address</p>
+                      <p className="font-medium">{(prospect.api_data as any).owner.mailingAddress.formattedAddress}</p>
+                    </div>
+                  )}
+                  {(prospect.api_data as any).ownerOccupied !== undefined && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Owner Occupied</p>
+                      <Badge variant={(prospect.api_data as any).ownerOccupied ? 'default' : 'secondary'}>
+                        {(prospect.api_data as any).ownerOccupied ? 'Yes' : 'No'}
+                      </Badge>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Tax & Assessment Info */}
+            {((prospect.api_data as any).taxAssessments || (prospect.api_data as any).propertyTaxes) && (
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Tax & Assessment History
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 font-medium">Year</th>
+                          <th className="text-right py-2 font-medium">Assessed Value</th>
+                          <th className="text-right py-2 font-medium">Land</th>
+                          <th className="text-right py-2 font-medium">Improvements</th>
+                          <th className="text-right py-2 font-medium">Property Tax</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.keys((prospect.api_data as any).taxAssessments || {})
+                          .sort((a, b) => Number(b) - Number(a))
+                          .slice(0, 5)
+                          .map((year) => {
+                            const assessment = (prospect.api_data as any).taxAssessments?.[year];
+                            const tax = (prospect.api_data as any).propertyTaxes?.[year];
+                            return (
+                              <tr key={year} className="border-b">
+                                <td className="py-2">{year}</td>
+                                <td className="text-right py-2">
+                                  {assessment?.value ? `$${assessment.value.toLocaleString()}` : '-'}
+                                </td>
+                                <td className="text-right py-2">
+                                  {assessment?.land ? `$${assessment.land.toLocaleString()}` : '-'}
+                                </td>
+                                <td className="text-right py-2">
+                                  {assessment?.improvements ? `$${assessment.improvements.toLocaleString()}` : '-'}
+                                </td>
+                                <td className="text-right py-2">
+                                  {tax?.total ? `$${tax.total.toLocaleString()}` : '-'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Sale History */}
+            {(prospect.api_data as any).history && Object.keys((prospect.api_data as any).history).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Sale History
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {Object.entries((prospect.api_data as any).history)
+                      .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+                      .map(([date, event]: [string, any]) => (
+                        <div key={date} className="flex justify-between items-center border-b pb-2">
+                          <div>
+                            <p className="font-medium">{event.event}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(event.date).toLocaleDateString()}
+                            </p>
+                          </div>
+                          {event.price && (
+                            <p className="font-semibold">${event.price.toLocaleString()}</p>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Location & Legal */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Additional Data
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                {(prospect.api_data as any).county && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-muted-foreground">County</p>
+                      <p className="font-medium">{(prospect.api_data as any).county}</p>
+                    </div>
+                    {(prospect.api_data as any).countyFips && (
+                      <div>
+                        <p className="text-muted-foreground">County FIPS</p>
+                        <p className="font-medium font-mono">{(prospect.api_data as any).countyFips}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {((prospect.api_data as any).latitude || (prospect.api_data as any).longitude) && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-muted-foreground">Latitude</p>
+                      <p className="font-medium font-mono">{(prospect.api_data as any).latitude}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Longitude</p>
+                      <p className="font-medium font-mono">{(prospect.api_data as any).longitude}</p>
+                    </div>
+                  </div>
+                )}
+                {(prospect.api_data as any).assessorID && (
+                  <div>
+                    <p className="text-muted-foreground">Assessor ID</p>
+                    <p className="font-medium font-mono">{(prospect.api_data as any).assessorID}</p>
+                  </div>
+                )}
+                {(prospect.api_data as any).legalDescription && (
+                  <div>
+                    <p className="text-muted-foreground">Legal Description</p>
+                    <p className="font-medium text-xs">{(prospect.api_data as any).legalDescription}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </div>
   );
