@@ -13,12 +13,13 @@ Rental property investment management application for researching, analyzing, an
 
 | Layer | Technology |
 |-------|------------|
-| Framework | Next.js 14 (App Router) |
+| Framework | Next.js 16 (App Router) |
 | Language | TypeScript |
-| Styling | Tailwind CSS + shadcn/ui |
+| Styling | Tailwind CSS 4 + shadcn/ui |
 | Database | Supabase (PostgreSQL) |
-| Property Data | Zillow API via RapidAPI |
+| Property Data | Rentcast API |
 | Charts | Recharts |
+| Forms | React Hook Form + Zod |
 | Icons | Lucide React |
 | Deployment | Vercel |
 
@@ -27,28 +28,43 @@ Rental property investment management application for researching, analyzing, an
 ## Features
 
 ### Dashboard (`/`)
-- Portfolio overview (total value, equity, cash flow)
+- Portfolio overview stats:
+  - Total properties count
+  - Portfolio value
+  - Total equity
+  - Monthly cash flow
+  - Active prospects count
 - Recent prospects summary
-- Upcoming tasks (lease renewals, maintenance)
+- Upcoming tasks (lease renewals, pending maintenance)
 - Quick action buttons
 
 ### Properties (`/properties`)
 - List of owned rental properties
-- Property detail pages with tabs:
-  - Overview (details, mortgage info)
-  - Tenants (contact, lease dates, rent)
-  - Maintenance (repairs, vendors, costs)
-  - Financials (transactions, P&L)
-  - Documents (leases, inspections)
+- Property status types:
+  - **Rented** - Currently occupied
+  - **Listed (Rent)** - Listed for rent
+  - **Listed (Sell)** - Listed for sale
+  - **Reno/Changeover** - Under renovation or between tenants
+  - **Listed (STR)** - Listed as short-term rental
+- Property detail pages (`/properties/[id]`) with tabs:
+  - **Overview** - Details, mortgage info, monthly rent, nightly rent
+  - **Tenants** - Contact info, lease dates, rent amount
+  - **Maintenance** - Repairs, vendors, costs, status
+  - **Financials** - Transactions, P&L
+  - **Documents** - Leases, inspections, files
+- Edit property (`/properties/[id]/edit`)
+- Add new property (`/properties/new`)
 
 ### Prospects (`/prospects`)
 - Track potential investment properties
 - Status workflow: Researching → Offer Made → Won/Lost/Passed
 - **Search Properties** (`/prospects/search`):
-  - Paste Zillow URL to auto-fetch property data
-  - Search by location (city/zip)
-  - Search by address
+  - Search by address (e.g., "5319 Camelia St, Pittsburgh, PA")
+  - Search by location (city/state or zip code)
+  - View property details: beds, baths, sqft, year built, last sale price
+  - Owner occupied status indicator
   - Add to prospects with one click
+- Add prospect manually (`/prospects/new`)
 
 ### Proforma Calculator (`/calculator`)
 - Full financial modeling for rental analysis
@@ -70,10 +86,33 @@ Rental property investment management application for researching, analyzing, an
 ### Banking (`/banking`)
 - Transaction list (income/expenses)
 - Filter by type, category, date range
+- **Multiple Bank Accounts:**
+  - Add/manage multiple accounts (checking, savings, credit card, investment)
+  - Set default account
+  - Track balances
+  - Assign transactions to accounts
+- **Add Transaction** (`/banking/new`):
+  - Select type (income/expense)
+  - Choose category
+  - Assign to property (optional)
+  - Select bank account
 - **CSV Import** (`/banking/import`):
-  - Upload bank statements from PNC
+  - Upload bank statements (supports PNC format)
+  - Handles amounts like "- $155,000" or "+ $1,250"
   - Map columns to categories
+  - Select bank account for import
   - Review and select transactions to import
+
+### Documents (`/documents`)
+- Document management for properties
+- Upload and organize files
+- Document types: Lease, Inspection, Insurance, Tax, Deed, Contract, Other
+
+### Settings (`/settings`)
+- **Profile:** Name, email, company/LLC name
+- **Notifications:** Lease expiration reminders, maintenance alerts, payment reminders
+- **Default Values:** Vacancy rate, property management fee, maintenance reserve, appreciation rate, rent growth rate, interest rate
+- **Data Management:** Export properties, transactions, all data to CSV
 
 ---
 
@@ -81,43 +120,54 @@ Rental property investment management application for researching, analyzing, an
 
 ### Tables
 
-```
-properties          - Owned rental properties
-prospects           - Properties being researched
-proforma_scenarios  - Financial analysis scenarios
-feedback_entries    - Notes/ratings for prospects
-tenants             - Tenant information
-transactions        - Income and expenses
-maintenance_records - Repair/maintenance history
-documents           - File storage references
-```
+| Table | Purpose |
+|-------|---------|
+| `properties` | Owned rental properties |
+| `prospects` | Properties being researched |
+| `tenants` | Tenant information |
+| `transactions` | Income and expenses |
+| `bank_accounts` | Bank account management |
+| `maintenance_records` | Repair/maintenance history |
+| `documents` | File storage references |
+| `proforma_scenarios` | Financial analysis scenarios |
+| `feedback_entries` | Notes/ratings for prospects |
 
 ### Key Relationships
 - `tenants` → `properties` (many-to-one)
 - `transactions` → `properties` (many-to-one, nullable)
+- `transactions` → `bank_accounts` (many-to-one, nullable)
 - `maintenance_records` → `properties` (many-to-one)
 - `proforma_scenarios` → `properties` OR `prospects` (one of each)
 - `feedback_entries` → `prospects` (many-to-one)
 - `documents` → `properties` OR `prospects`
 
-Schema file: `supabase/schema.sql`
+### Property Status Values
+```sql
+'rented' | 'listed_rent' | 'listed_sell' | 'reno_changeover' | 'listed_str'
+```
+
+### Property Fields
+- `monthly_rent` - Monthly rent amount for long-term rentals
+- `avg_nightly_rent` - Average nightly rate for short-term rentals
 
 ---
 
 ## API Integrations
 
-### Zillow API (via RapidAPI)
-- **Host:** `zillow-com1.p.rapidapi.com`
+### Rentcast API
+- **Base URL:** `https://api.rentcast.io/v1`
+- **Authentication:** `X-Api-Key` header
 - **Endpoints used:**
-  - `propertyExtendedSearch` - Search by location
-  - `propertyByAddress` - Lookup by address
-  - `property` - Get details by ZPID
-- **Features:**
+  - `GET /properties?address=` - Search by address
+  - `GET /properties?city=&state=` - Search by location
+  - `GET /properties?zipCode=` - Search by zip code
+  - `GET /properties/{id}` - Get property by ID
+- **Data returned:**
   - Property details (beds, baths, sqft, year built)
-  - List price and Zestimate
-  - Rent estimate
-  - Days on market
-  - Photos
+  - Last sale price and date
+  - Lot size
+  - Owner occupied status
+  - Latitude/longitude coordinates
 
 ### Supabase
 - **URL:** `https://viaknzbkplndcqqoyupe.supabase.co`
@@ -132,13 +182,13 @@ Schema file: `supabase/schema.sql`
 ```env
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://viaknzbkplndcqqoyupe.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_PiBw3TZrLfISzYGdSyAJ2g_uOglavju
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 
-# RapidAPI (Zillow)
-RAPIDAPI_KEY=ae953c64c5msh0ed65abfc3d8f62p172b32jsn0ad99aa0c4d6
+# Rentcast API (for property search)
+RENTCAST_API_KEY=your_rentcast_api_key
 ```
 
-**Note:** These are set in both `.env.local` (local dev) and Vercel (production).
+**Note:** Set in both `.env.local` (local dev) and Vercel (production).
 
 ---
 
@@ -149,29 +199,39 @@ src/
 ├── app/
 │   ├── page.tsx                    # Dashboard
 │   ├── layout.tsx                  # Root layout with sidebar
-│   ├── api/mls-search/route.ts     # Zillow API proxy
+│   ├── api/mls-search/route.ts     # Rentcast API proxy
 │   ├── properties/
 │   │   ├── page.tsx                # Properties list
-│   │   └── [id]/page.tsx           # Property detail
+│   │   ├── new/page.tsx            # Add property
+│   │   └── [id]/
+│   │       ├── page.tsx            # Property detail
+│   │       └── edit/page.tsx       # Edit property
 │   ├── prospects/
 │   │   ├── page.tsx                # Prospects list
-│   │   └── search/page.tsx         # Property search (Zillow)
+│   │   ├── new/page.tsx            # Add prospect manually
+│   │   ├── search/page.tsx         # Property search (Rentcast)
+│   │   └── actions.ts              # Server actions
 │   ├── calculator/page.tsx         # Proforma calculator
-│   └── banking/
-│       ├── page.tsx                # Transactions list
-│       └── import/page.tsx         # CSV import
+│   ├── banking/
+│   │   ├── page.tsx                # Transactions list + bank accounts
+│   │   ├── new/page.tsx            # Add transaction
+│   │   ├── import/page.tsx         # CSV import
+│   │   └── actions.ts              # Server actions
+│   ├── documents/page.tsx          # Document management
+│   └── settings/page.tsx           # User settings
 ├── components/
 │   ├── layout/
 │   │   ├── Sidebar.tsx             # Navigation sidebar
-│   │   └── Header.tsx              # Top header with quick add
+│   │   └── Header.tsx              # Top header
 │   └── ui/                         # shadcn/ui components
 ├── lib/
 │   ├── supabase.ts                 # Supabase client
-│   ├── rapidapi.ts                 # Zillow API functions
+│   ├── database.ts                 # Database functions (CRUD)
+│   ├── rentcast.ts                 # Rentcast API integration
 │   ├── proforma-calculations.ts    # Financial calc engine
 │   └── utils.ts                    # Utility functions
 └── types/
-    └── index.ts                    # TypeScript types
+    └── index.ts                    # TypeScript interfaces
 ```
 
 ---
@@ -180,25 +240,50 @@ src/
 
 | File | Purpose |
 |------|---------|
-| `src/lib/proforma-calculations.ts` | All financial formulas (mortgage, IRR, NPV, etc.) |
-| `src/lib/rapidapi.ts` | Zillow API integration |
-| `src/lib/supabase.ts` | Database client |
+| `src/lib/database.ts` | All Supabase CRUD operations |
+| `src/lib/rentcast.ts` | Rentcast API integration |
+| `src/lib/proforma-calculations.ts` | Financial formulas (mortgage, IRR, NPV, etc.) |
 | `src/types/index.ts` | TypeScript interfaces for all entities |
 | `supabase/schema.sql` | Database table definitions |
-| `.env.local` | Local environment variables |
+
+---
+
+## TypeScript Types
+
+### Core Entities
+- `Property` - Owned property with mortgage, rent, status
+- `Prospect` - Potential investment property
+- `Tenant` - Tenant info with lease dates
+- `Transaction` - Income/expense record
+- `BankAccount` - Bank account for transactions
+- `MaintenanceRecord` - Repair/maintenance entry
+- `Document` - File reference
+- `ProformaScenario` - Financial analysis inputs
+- `FeedbackEntry` - Notes/ratings for prospects
+
+### Enums
+- `PropertyStatus`: rented, listed_rent, listed_sell, reno_changeover, listed_str
+- `ProspectStatus`: researching, offer_made, passed, won, lost
+- `TenantStatus`: active, past, pending
+- `TransactionType`: income, expense
+- `BankAccountType`: checking, savings, credit_card, investment, other
+- `MaintenanceStatus`: pending, in_progress, completed
+
+### Transaction Categories
+**Income:** Rent, Late Fee, Pet Fee, Application Fee, Security Deposit, Other Income
+**Expense:** Mortgage, Insurance, Property Tax, HOA, Utilities, Repairs, Maintenance, Property Management, Landscaping, Pest Control, Legal, Advertising, Supplies, Travel, Other Expense
 
 ---
 
 ## Deployment
 
 - **Platform:** Vercel
-- **Project ID:** `prj_u1rHb8qf24G3LaKwJ1NSOiuQXOAn`
 - **Domain:** murrayaspinwall.com
-- **Auto-deploy:** Pending GitHub connection
+- **Auto-deploy:** Connected to GitHub main branch
 
 ### Deploy Commands
 ```bash
-# Deploy to Vercel
+# Deploy to Vercel (preview)
 npx vercel --yes
 
 # Deploy to production
@@ -225,29 +310,70 @@ npm start
 
 ---
 
-## Current Status
+## Recent Changes (Development History)
 
-### Completed
-- [x] Dashboard with portfolio stats
-- [x] Properties list and detail pages
-- [x] Prospects list with status tracking
-- [x] Zillow property search (URL paste, location, address)
-- [x] Proforma calculator with full metrics
-- [x] Banking transactions page
-- [x] CSV import interface
-- [x] Supabase schema created
-- [x] Deployed to Vercel
-- [x] Custom domain configured
+### January 2025
 
-### Pending
-- [ ] Connect Supabase to actual pages (currently using demo data)
-- [ ] Add prospect to database functionality
-- [ ] Property CRUD operations
-- [ ] Tenant management
-- [ ] Maintenance tracking
-- [ ] Document uploads (Supabase Storage)
-- [ ] Authentication (Supabase Auth)
-- [ ] Connect GitHub to Vercel for auto-deploy
+#### Rentcast API Migration
+- Replaced RapidAPI/Zillow integration with Rentcast API
+- Removed Zillow URL paste feature (no longer needed)
+- Search now by address or location only
+- Shows last sale price instead of Zestimate
+- Added owner occupied status indicator
+- Files changed: `src/lib/rentcast.ts` (new), `src/app/api/mls-search/route.ts`, `src/app/prospects/search/page.tsx`
+
+#### Multiple Bank Accounts
+- Added bank account management to Banking page
+- Support for: checking, savings, credit card, investment accounts
+- Set default account for new transactions
+- Assign transactions to specific accounts
+- CSV import with account selection
+- New database table: `bank_accounts`
+- New field on transactions: `bank_account_id`
+
+#### Property Status Updates
+- Changed status options from active/pending/sold to:
+  - Rented, Listed (Rent), Listed (Sell), Reno/Changeover, Listed (STR)
+- Added fields: `monthly_rent`, `avg_nightly_rent`
+
+#### PNC CSV Import Fix
+- Fixed amount parsing for PNC bank exports
+- Handles formats like "- $155,000" and "+ $1,250"
+
+#### Settings Page
+- Created `/settings` page with profile, notifications, defaults sections
+
+---
+
+## Database SQL (Recent Additions)
+
+```sql
+-- Bank accounts table
+CREATE TABLE bank_accounts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  institution TEXT,
+  account_type TEXT DEFAULT 'checking',
+  account_number_last4 TEXT,
+  current_balance NUMERIC,
+  is_default BOOLEAN DEFAULT false,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Add bank_account_id to transactions
+ALTER TABLE transactions ADD COLUMN bank_account_id UUID REFERENCES bank_accounts(id);
+
+-- Add rent fields to properties
+ALTER TABLE properties ADD COLUMN monthly_rent NUMERIC;
+ALTER TABLE properties ADD COLUMN avg_nightly_rent NUMERIC;
+
+-- Update property status enum
+ALTER TABLE properties
+ALTER COLUMN status TYPE TEXT;
+-- Valid values: 'rented', 'listed_rent', 'listed_sell', 'reno_changeover', 'listed_str'
+```
 
 ---
 
@@ -257,5 +383,32 @@ npm start
 |---------|-----------|
 | Supabase | https://supabase.com/dashboard/project/viaknzbkplndcqqoyupe |
 | Vercel | https://vercel.com/omlielabs/rental-property-app |
-| RapidAPI | https://rapidapi.com/developer/dashboard |
+| Rentcast | https://rentcast.io/dashboard |
 | GitHub | https://github.com/sobolakjr/MurrayAspinwallLP |
+
+---
+
+## Current Status
+
+### Completed
+- [x] Dashboard with portfolio stats
+- [x] Properties list and detail pages with tabs
+- [x] Property CRUD operations
+- [x] Multiple property status types
+- [x] Prospects list with status tracking
+- [x] Rentcast property search (address, location)
+- [x] Proforma calculator with full metrics
+- [x] Banking transactions page
+- [x] Multiple bank account management
+- [x] CSV import (PNC format supported)
+- [x] Settings page
+- [x] Supabase database connected
+- [x] Deployed to Vercel with custom domain
+
+### Pending
+- [ ] Tenant management UI improvements
+- [ ] Document uploads (Supabase Storage)
+- [ ] Authentication (Supabase Auth)
+- [ ] Reports page enhancements
+- [ ] Mobile responsive improvements
+- [ ] Email notifications

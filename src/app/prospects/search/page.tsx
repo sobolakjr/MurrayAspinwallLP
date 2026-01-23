@@ -15,10 +15,8 @@ import {
   ArrowLeft,
   Plus,
   Loader2,
-  ExternalLink,
   AlertCircle,
   Check,
-  Link as LinkIcon,
 } from 'lucide-react';
 import { addProspectAction } from '../actions';
 
@@ -37,20 +35,15 @@ interface SearchResult {
   year_built: number;
   days_on_market: number;
   photo_url?: string;
-  zestimate?: number;
-  rent_estimate?: number;
-}
-
-// Extract ZPID from Zillow URL
-function extractZpidFromUrl(url: string): string | null {
-  const match = url.match(/(\d+)_zpid/);
-  return match ? match[1] : null;
+  latitude?: number;
+  longitude?: number;
+  owner_occupied?: boolean;
+  last_sale_date?: string;
 }
 
 export default function ProspectSearchPage() {
   const router = useRouter();
-  const [searchType, setSearchType] = useState<'url' | 'location' | 'address'>('url');
-  const [zillowUrl, setZillowUrl] = useState('');
+  const [searchType, setSearchType] = useState<'location' | 'address'>('address');
   const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -70,14 +63,7 @@ export default function ProspectSearchPage() {
       let query: string;
       let type: string;
 
-      if (searchType === 'url') {
-        const zpid = extractZpidFromUrl(zillowUrl);
-        if (!zpid) {
-          throw new Error('Invalid Zillow URL. Make sure it contains a property ID (e.g., 12345678_zpid)');
-        }
-        query = zpid;
-        type = 'zpid';
-      } else if (searchType === 'location') {
+      if (searchType === 'location') {
         query = location;
         type = 'location';
       } else {
@@ -134,6 +120,20 @@ export default function ProspectSearchPage() {
     }
   };
 
+  const formatPropertyType = (type: string): string => {
+    const typeMap: Record<string, string> = {
+      'single_family': 'Single Family',
+      'multi_family': 'Multi Family',
+      'condo': 'Condo',
+      'townhouse': 'Townhouse',
+      'duplex': 'Duplex',
+      'triplex': 'Triplex',
+      'land': 'Land',
+      'other': 'Other',
+    };
+    return typeMap[type] || type;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -146,7 +146,7 @@ export default function ProspectSearchPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Search Properties</h1>
           <p className="text-muted-foreground">
-            Search Zillow for investment properties by location or address
+            Search for investment properties by location or address
           </p>
         </div>
       </div>
@@ -154,19 +154,18 @@ export default function ProspectSearchPage() {
       {/* Search Form */}
       <Card>
         <CardHeader>
-          <CardTitle>Zillow Property Search</CardTitle>
+          <CardTitle>Property Search</CardTitle>
           <CardDescription>
-            Paste a Zillow URL, search by location, or enter a specific address
+            Search by location (city, state, zip) or enter a specific address
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
             <Button
-              variant={searchType === 'url' ? 'default' : 'outline'}
-              onClick={() => setSearchType('url')}
+              variant={searchType === 'address' ? 'default' : 'outline'}
+              onClick={() => setSearchType('address')}
             >
-              <LinkIcon className="mr-2 h-4 w-4" />
-              Paste URL
+              By Address
             </Button>
             <Button
               variant={searchType === 'location' ? 'default' : 'outline'}
@@ -174,45 +173,14 @@ export default function ProspectSearchPage() {
             >
               By Location
             </Button>
-            <Button
-              variant={searchType === 'address' ? 'default' : 'outline'}
-              onClick={() => setSearchType('address')}
-            >
-              By Address
-            </Button>
           </div>
 
-          {searchType === 'url' ? (
-            <div className="flex gap-4">
-              <div className="flex-1 space-y-2">
-                <Label>Zillow Property URL</Label>
-                <Input
-                  placeholder="Paste Zillow URL (e.g., https://www.zillow.com/homedetails/...)"
-                  value={zillowUrl}
-                  onChange={(e) => setZillowUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && zillowUrl && handleSearch()}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Copy the URL from your browser while viewing a property on Zillow
-                </p>
-              </div>
-              <div className="flex items-end pb-5">
-                <Button onClick={handleSearch} disabled={isLoading || !zillowUrl}>
-                  {isLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="mr-2 h-4 w-4" />
-                  )}
-                  Fetch Property
-                </Button>
-              </div>
-            </div>
-          ) : searchType === 'location' ? (
+          {searchType === 'location' ? (
             <div className="flex gap-4">
               <div className="flex-1 space-y-2">
                 <Label>City, State or Zip Code</Label>
                 <Input
-                  placeholder="e.g., Columbus, OH or 43215"
+                  placeholder="e.g., Pittsburgh, PA or 15201"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && location && handleSearch()}
@@ -234,7 +202,7 @@ export default function ProspectSearchPage() {
               <div className="flex-1 space-y-2">
                 <Label>Full Address</Label>
                 <Input
-                  placeholder="e.g., 123 Main St, Columbus, OH 43215"
+                  placeholder="e.g., 5319 Camelia St, Pittsburgh, PA 15201"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && address && handleSearch()}
@@ -291,78 +259,46 @@ export default function ProspectSearchPage() {
                   >
                     <div className="flex gap-4">
                       <div className="flex h-24 w-24 items-center justify-center rounded-lg bg-muted overflow-hidden">
-                        {result.photo_url ? (
-                          <img
-                            src={result.photo_url}
-                            alt={result.address}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <Home className="h-8 w-8 text-muted-foreground" />
-                        )}
+                        <Home className="h-8 w-8 text-muted-foreground" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="font-medium">{result.address}</h4>
-                          {result.mls_number && (
-                            <Badge variant="outline" className="font-mono text-xs">
-                              ZPID: {result.mls_number}
-                            </Badge>
-                          )}
+                          <Badge variant="outline" className="text-xs">
+                            {formatPropertyType(result.property_type)}
+                          </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
                           {result.city}, {result.state} {result.zip}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-4 text-sm">
-                          <span className="font-semibold text-lg">
-                            ${result.list_price?.toLocaleString() || 'N/A'}
-                          </span>
+                          {result.list_price > 0 && (
+                            <span className="font-semibold text-lg">
+                              ${result.list_price.toLocaleString()}
+                              <span className="text-xs text-muted-foreground ml-1">last sale</span>
+                            </span>
+                          )}
                           <span className="text-muted-foreground">
                             {result.bedrooms || '?'} bed | {result.bathrooms || '?'} bath | {result.sqft?.toLocaleString() || '?'} sqft
                           </span>
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-4 text-sm text-muted-foreground">
                           {result.year_built > 0 && (
-                            <span className="text-muted-foreground">
-                              Built {result.year_built}
-                            </span>
+                            <span>Built {result.year_built}</span>
                           )}
-                          {result.days_on_market > 0 && (
-                            <span className="text-muted-foreground">
-                              {result.days_on_market} days on Zillow
-                            </span>
+                          {result.lot_size && (
+                            <span>Lot: {result.lot_size.toLocaleString()} sqft</span>
+                          )}
+                          {result.owner_occupied !== undefined && (
+                            <Badge variant={result.owner_occupied ? 'secondary' : 'outline'} className="text-xs">
+                              {result.owner_occupied ? 'Owner Occupied' : 'Not Owner Occupied'}
+                            </Badge>
                           )}
                         </div>
-                        {(result.zestimate || result.rent_estimate) && (
-                          <div className="mt-1 flex gap-4 text-sm">
-                            {result.zestimate && (
-                              <span className="text-blue-600">
-                                Zestimate: ${result.zestimate.toLocaleString()}
-                              </span>
-                            )}
-                            {result.rent_estimate && (
-                              <span className="text-green-600">
-                                Rent Est: ${result.rent_estimate.toLocaleString()}/mo
-                              </span>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        asChild
-                      >
-                        <a
-                          href={`https://www.zillow.com/homes/${result.mls_number}_zpid/`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Zillow
-                        </a>
-                      </Button>
                       {addedIds.has(result.mls_number || result.address) ? (
                         <Button size="sm" variant="outline" disabled className="text-green-600">
                           <Check className="mr-2 h-4 w-4" />

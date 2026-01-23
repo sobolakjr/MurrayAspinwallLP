@@ -96,7 +96,7 @@ export default function NewProspectPage() {
         <Button variant="outline" asChild>
           <Link href="/prospects/search">
             <Search className="mr-2 h-4 w-4" />
-            Search Zillow Instead
+            Search Properties
           </Link>
         </Button>
       </div>
@@ -180,7 +180,7 @@ export default function NewProspectPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="mls_number">MLS # / ZPID</Label>
+                  <Label htmlFor="mls_number">Property ID</Label>
                   <Input
                     id="mls_number"
                     value={formData.mls_number}

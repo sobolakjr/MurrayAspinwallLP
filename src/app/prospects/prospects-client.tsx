@@ -82,7 +82,7 @@ export function ProspectsClient({ initialProspects }: ProspectsClientProps) {
           <Button variant="outline" asChild>
             <Link href="/prospects/search">
               <Search className="mr-2 h-4 w-4" />
-              Search Zillow
+              Search Properties
             </Link>
           </Button>
           <Button asChild>
@@ -174,7 +174,7 @@ export function ProspectsClient({ initialProspects }: ProspectsClientProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Property</TableHead>
-                  <TableHead>ZPID</TableHead>
+                  <TableHead>ID</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Beds/Baths</TableHead>
                   <TableHead className="text-right">List Price</TableHead>

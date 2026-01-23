@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   searchPropertiesByLocation,
   searchPropertyByAddress,
-  getPropertyByZpid,
-  isRapidApiConfigured,
-} from '@/lib/rapidapi';
+  getPropertyById,
+  isRentcastConfigured,
+} from '@/lib/rentcast';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -15,9 +15,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Query parameter required' }, { status: 400 });
   }
 
-  if (!isRapidApiConfigured()) {
+  if (!isRentcastConfigured()) {
     return NextResponse.json(
-      { error: 'RapidAPI key not configured. Please add your key to .env.local' },
+      { error: 'Rentcast API key not configured. Please add your key to .env.local' },
       { status: 500 }
     );
   }
@@ -26,9 +26,9 @@ export async function GET(request: NextRequest) {
     let results;
 
     switch (type) {
-      case 'zpid':
-        // Search by Zillow Property ID
-        const property = await getPropertyByZpid(query);
+      case 'id':
+        // Search by Rentcast Property ID
+        const property = await getPropertyById(query);
         results = property ? [property] : [];
         break;
 
@@ -40,14 +40,25 @@ export async function GET(request: NextRequest) {
 
       case 'location':
       default:
-        // Search by city, zip, or neighborhood
-        results = await searchPropertiesByLocation(query);
+        // Search by city/state or zip code
+        // Parse location - could be "Pittsburgh, PA" or "15201"
+        const isZipCode = /^\d{5}(-\d{4})?$/.test(query.trim());
+
+        if (isZipCode) {
+          results = await searchPropertiesByLocation('', '', query.trim());
+        } else {
+          // Parse "City, State" format
+          const parts = query.split(',').map(p => p.trim());
+          const city = parts[0] || '';
+          const state = parts[1] || '';
+          results = await searchPropertiesByLocation(city, state);
+        }
         break;
     }
 
     return NextResponse.json({ results });
   } catch (error) {
-    console.error('MLS search error:', error);
+    console.error('Property search error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Search failed' },
       { status: 500 }
