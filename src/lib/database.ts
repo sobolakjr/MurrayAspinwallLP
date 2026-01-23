@@ -392,11 +392,11 @@ export async function getDashboardStats() {
     };
   }
 
-  // Get properties
+  // Get properties (all statuses except none - these are all owned properties)
   const { data: properties } = await supabase
     .from('properties')
     .select('current_value, mortgage_balance')
-    .eq('status', 'active');
+    .in('status', ['rented', 'listed_rent', 'listed_sell', 'reno_changeover', 'listed_str']);
 
   // Get active prospects count
   const { count: prospectsCount } = await supabase

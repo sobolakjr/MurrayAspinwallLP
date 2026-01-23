@@ -1,7 +1,7 @@
 // Database types for Rental Property Investment Manager
 
 export type PropertyType = 'single_family' | 'multi_family' | 'condo' | 'townhouse' | 'duplex' | 'triplex' | 'fourplex';
-export type PropertyStatus = 'active' | 'sold' | 'pending';
+export type PropertyStatus = 'rented' | 'listed_rent' | 'listed_sell' | 'reno_changeover' | 'listed_str';
 export type ProspectStatus = 'researching' | 'offer_made' | 'passed' | 'won' | 'lost';
 export type TenantStatus = 'active' | 'past' | 'pending';
 export type TransactionType = 'income' | 'expense';
@@ -29,6 +29,8 @@ export interface Property {
   lot_size: number | null;
   year_built: number | null;
   status: PropertyStatus;
+  monthly_rent: number | null;
+  avg_nightly_rent: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

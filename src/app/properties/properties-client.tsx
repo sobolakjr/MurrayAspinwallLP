@@ -27,6 +27,17 @@ interface PropertiesClientProps {
   initialProperties: Property[];
 }
 
+function formatStatus(status: string): string {
+  const statusLabels: Record<string, string> = {
+    rented: 'Rented',
+    listed_rent: 'Listed (Rent)',
+    listed_sell: 'Listed (Sell)',
+    reno_changeover: 'Reno/Changeover',
+    listed_str: 'Listed (ST Rental)',
+  };
+  return statusLabels[status] || status;
+}
+
 export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
   const [search, setSearch] = useState('');
   const properties = initialProperties.filter(
@@ -163,9 +174,9 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={property.status === 'active' ? 'default' : 'secondary'}
+                        variant={property.status === 'rented' ? 'default' : 'secondary'}
                       >
-                        {property.status}
+                        {formatStatus(property.status)}
                       </Badge>
                     </TableCell>
                     <TableCell>

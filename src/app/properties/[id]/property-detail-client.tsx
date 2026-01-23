@@ -32,6 +32,17 @@ interface PropertyDetailClientProps {
   transactions: Transaction[];
 }
 
+function formatStatus(status: string): string {
+  const statusLabels: Record<string, string> = {
+    rented: 'Rented',
+    listed_rent: 'Listed (Rent)',
+    listed_sell: 'Listed (Sell)',
+    reno_changeover: 'Reno/Changeover',
+    listed_str: 'Listed (ST Rental)',
+  };
+  return statusLabels[status] || status;
+}
+
 export function PropertyDetailClient({
   property,
   tenants,
@@ -60,8 +71,8 @@ export function PropertyDetailClient({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-bold tracking-tight">{property.address}</h1>
-              <Badge variant={property.status === 'active' ? 'default' : 'secondary'}>
-                {property.status}
+              <Badge variant={property.status === 'rented' ? 'default' : 'secondary'}>
+                {formatStatus(property.status)}
               </Badge>
             </div>
             <p className="text-muted-foreground">
@@ -206,6 +217,24 @@ export function PropertyDetailClient({
                   <div>
                     <p className="text-sm text-muted-foreground">Monthly Payment</p>
                     <p className="font-medium">${(Number(property.mortgage_payment) || 0).toLocaleString()}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Rent Income</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Monthly Rent</p>
+                    <p className="font-medium">${(Number(property.monthly_rent) || 0).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Avg Nightly Rent (STR)</p>
+                    <p className="font-medium">${(Number(property.avg_nightly_rent) || 0).toLocaleString()}</p>
                   </div>
                 </div>
               </CardContent>

@@ -45,7 +45,9 @@ export function PropertyEditClient({ property }: PropertyEditClientProps) {
     mortgage_balance: property.mortgage_balance?.toString() || '',
     mortgage_rate: property.mortgage_rate?.toString() || '',
     mortgage_payment: property.mortgage_payment?.toString() || '',
-    status: property.status || 'active',
+    status: property.status || 'rented',
+    monthly_rent: property.monthly_rent?.toString() || '',
+    avg_nightly_rent: property.avg_nightly_rent?.toString() || '',
     notes: property.notes || '',
   });
 
@@ -77,6 +79,8 @@ export function PropertyEditClient({ property }: PropertyEditClientProps) {
         mortgage_rate: formData.mortgage_rate ? parseFloat(formData.mortgage_rate) : undefined,
         mortgage_payment: formData.mortgage_payment ? parseFloat(formData.mortgage_payment) : undefined,
         status: formData.status,
+        monthly_rent: formData.monthly_rent ? parseFloat(formData.monthly_rent) : undefined,
+        avg_nightly_rent: formData.avg_nightly_rent ? parseFloat(formData.avg_nightly_rent) : undefined,
         notes: formData.notes || undefined,
       });
 
@@ -191,9 +195,11 @@ export function PropertyEditClient({ property }: PropertyEditClientProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="sold">Sold</SelectItem>
+                      <SelectItem value="rented">Rented</SelectItem>
+                      <SelectItem value="listed_rent">Listed (Rent)</SelectItem>
+                      <SelectItem value="listed_sell">Listed (Sell)</SelectItem>
+                      <SelectItem value="reno_changeover">Reno/Changeover</SelectItem>
+                      <SelectItem value="listed_str">Listed (ST Rental)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -315,6 +321,26 @@ export function PropertyEditClient({ property }: PropertyEditClientProps) {
                     type="number"
                     value={formData.mortgage_payment}
                     onChange={(e) => handleChange('mortgage_payment', e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="monthly_rent">Monthly Rent ($)</Label>
+                  <Input
+                    id="monthly_rent"
+                    type="number"
+                    value={formData.monthly_rent}
+                    onChange={(e) => handleChange('monthly_rent', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="avg_nightly_rent">Avg Nightly Rent ($)</Label>
+                  <Input
+                    id="avg_nightly_rent"
+                    type="number"
+                    value={formData.avg_nightly_rent}
+                    onChange={(e) => handleChange('avg_nightly_rent', e.target.value)}
                   />
                 </div>
               </div>
