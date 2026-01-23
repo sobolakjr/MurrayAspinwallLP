@@ -49,3 +49,6 @@ DROP TRIGGER IF EXISTS bank_accounts_updated_at ON bank_accounts;
 CREATE TRIGGER bank_accounts_updated_at
   BEFORE UPDATE ON bank_accounts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Step 8: Add listing_urls to prospects table
+ALTER TABLE prospects ADD COLUMN IF NOT EXISTS listing_urls TEXT[];

@@ -43,6 +43,7 @@ CREATE TABLE prospects (
   lot_size DECIMAL(10,2),
   year_built INTEGER,
   days_on_market INTEGER,
+  listing_urls TEXT[],
   status TEXT DEFAULT 'researching' CHECK (status IN ('researching', 'offer_made', 'passed', 'won', 'lost')),
   api_data JSONB,
   notes TEXT,

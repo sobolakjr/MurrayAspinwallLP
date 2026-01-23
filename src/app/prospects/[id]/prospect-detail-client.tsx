@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -29,6 +30,10 @@ import {
   User,
   FileText,
   RefreshCw,
+  Link2,
+  Plus,
+  X,
+  ExternalLink,
 } from 'lucide-react';
 import type { Prospect, ProspectStatus } from '@/types';
 import { updateProspectAction, deleteProspectAction, refreshApiDataAction } from '../actions';
@@ -57,9 +62,13 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
   const router = useRouter();
   const [status, setStatus] = useState<ProspectStatus>(prospect.status);
   const [notes, setNotes] = useState(prospect.notes || '');
+  const [listingUrls, setListingUrls] = useState<string[]>(prospect.listing_urls || []);
+  const [newUrl, setNewUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isFetchingPrice, setIsFetchingPrice] = useState<string | null>(null);
+  const [listPrice, setListPrice] = useState<number | null>(Number(prospect.list_price) || null);
 
   const handleRefreshApiData = async () => {
     setIsRefreshing(true);
@@ -88,7 +97,12 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const result = await updateProspectAction(prospect.id, { status, notes });
+      const result = await updateProspectAction(prospect.id, {
+        status,
+        notes,
+        listing_urls: listingUrls.length > 0 ? listingUrls : null,
+        list_price: listPrice,
+      });
       if (!result.success) {
         console.error('Failed to save:', result.error);
       }
@@ -96,6 +110,56 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
       console.error('Error saving:', error);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAddUrl = () => {
+    if (!newUrl.trim()) return;
+    try {
+      new URL(newUrl); // Validate URL
+      if (!listingUrls.includes(newUrl)) {
+        setListingUrls([...listingUrls, newUrl]);
+      }
+      setNewUrl('');
+    } catch {
+      alert('Please enter a valid URL');
+    }
+  };
+
+  const handleRemoveUrl = (urlToRemove: string) => {
+    setListingUrls(listingUrls.filter(url => url !== urlToRemove));
+  };
+
+  const handleFetchPrice = async (url: string) => {
+    setIsFetchingPrice(url);
+    try {
+      const response = await fetch(`/api/fetch-listing?url=${encodeURIComponent(url)}`);
+      const data = await response.json();
+
+      if (data.success && data.listPrice) {
+        setListPrice(data.listPrice);
+        alert(`Found list price: $${data.listPrice.toLocaleString()}`);
+      } else {
+        alert(data.error || 'Could not extract price from listing. The site may be blocking automated access.');
+      }
+    } catch (error) {
+      console.error('Error fetching price:', error);
+      alert('Failed to fetch listing price');
+    } finally {
+      setIsFetchingPrice(null);
+    }
+  };
+
+  const getUrlSource = (url: string): string => {
+    try {
+      const hostname = new URL(url).hostname;
+      if (hostname.includes('zillow')) return 'Zillow';
+      if (hostname.includes('redfin')) return 'Redfin';
+      if (hostname.includes('realtor')) return 'Realtor.com';
+      if (hostname.includes('trulia')) return 'Trulia';
+      return hostname.replace('www.', '');
+    } catch {
+      return 'Link';
     }
   };
 
@@ -297,12 +361,16 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm text-muted-foreground">Last Sale Price</p>
+              <p className="text-sm text-muted-foreground">
+                {listPrice !== Number(prospect.list_price) ? 'List Price (from listing)' : 'Last Sale Price'}
+              </p>
               <p className="text-3xl font-bold">
-                ${Number(prospect.list_price || 0).toLocaleString()}
+                ${(listPrice || 0).toLocaleString()}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                From public records (not current listing)
+                {listPrice !== Number(prospect.list_price)
+                  ? 'Fetched from listing URL'
+                  : 'From public records (not current listing)'}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -313,8 +381,8 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
               <div>
                 <p className="text-sm text-muted-foreground">Price per Sqft</p>
                 <p className="font-medium">
-                  {prospect.sqft && prospect.list_price
-                    ? `$${Math.round(Number(prospect.list_price) / prospect.sqft).toLocaleString()}`
+                  {prospect.sqft && listPrice
+                    ? `$${Math.round(listPrice / prospect.sqft).toLocaleString()}`
                     : 'N/A'}
                 </p>
               </div>
@@ -326,6 +394,95 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
                 {new Date(prospect.created_at).toLocaleDateString()}
               </p>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Listing URLs */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5" />
+              Listing URLs
+            </CardTitle>
+            <CardDescription>
+              Add Zillow, Redfin, or Realtor.com links to fetch current listing price
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Add URL Input */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Paste listing URL (Zillow, Redfin, Realtor.com)..."
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddUrl()}
+                className="flex-1"
+              />
+              <Button onClick={handleAddUrl} disabled={!newUrl.trim()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add
+              </Button>
+            </div>
+
+            {/* URL List */}
+            {listingUrls.length > 0 ? (
+              <div className="space-y-2">
+                {listingUrls.map((url, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30"
+                  >
+                    <Badge variant="outline" className="shrink-0">
+                      {getUrlSource(url)}
+                    </Badge>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 text-sm text-blue-600 hover:underline truncate"
+                    >
+                      {url}
+                    </a>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFetchPrice(url)}
+                        disabled={isFetchingPrice === url}
+                      >
+                        {isFetchingPrice === url ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <DollarSign className="h-4 w-4" />
+                        )}
+                        <span className="ml-1 hidden sm:inline">Get Price</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        asChild
+                      >
+                        <a href={url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleRemoveUrl(url)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No listing URLs added yet
+              </p>
+            )}
           </CardContent>
         </Card>
 

@@ -38,6 +38,7 @@ export async function addProspectAction(input: CreateProspectInput): Promise<{ s
       lot_size: input.lot_size,
       year_built: input.year_built,
       days_on_market: input.days_on_market,
+      listing_urls: null,
       status: 'researching',
       api_data: input.api_data || null,
       notes: null,

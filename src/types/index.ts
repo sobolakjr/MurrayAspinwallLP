@@ -58,6 +58,7 @@ export interface Prospect {
   state: string;
   zip: string;
   list_price: number | null;
+  listing_urls: string[] | null;
   property_type: PropertyType | null;
   bedrooms: number | null;
   bathrooms: number | null;
