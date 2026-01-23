@@ -9,6 +9,20 @@ export type ImportSource = 'manual' | 'csv' | 'plaid';
 export type MaintenanceCategory = 'plumbing' | 'electrical' | 'hvac' | 'appliance' | 'structural' | 'cosmetic' | 'landscaping' | 'other';
 export type MaintenanceStatus = 'pending' | 'in_progress' | 'completed';
 export type DocumentType = 'lease' | 'inspection' | 'insurance' | 'tax' | 'deed' | 'contract' | 'other';
+export type BankAccountType = 'checking' | 'savings' | 'credit_card' | 'investment' | 'other';
+
+export interface BankAccount {
+  id: string;
+  name: string;
+  institution: string | null;
+  account_type: BankAccountType;
+  account_number_last4: string | null;
+  current_balance: number | null;
+  is_default: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface Property {
   id: string;
@@ -129,6 +143,7 @@ export interface Tenant {
 export interface Transaction {
   id: string;
   property_id: string | null;
+  bank_account_id: string | null;
   date: string;
   amount: number;
   type: TransactionType;

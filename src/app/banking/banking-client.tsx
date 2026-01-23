@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -21,6 +23,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,19 +49,35 @@ import {
   Building2,
   Edit,
   Trash2,
+  CreditCard,
+  Landmark,
+  Loader2,
 } from 'lucide-react';
-import type { Transaction, Property } from '@/types';
+import type { Transaction, Property, BankAccount } from '@/types';
+import { createBankAccountAction, deleteBankAccountAction } from './actions';
 
 interface BankingClientProps {
   initialTransactions: Transaction[];
   properties: Property[];
+  bankAccounts: BankAccount[];
 }
 
-export function BankingClient({ initialTransactions, properties }: BankingClientProps) {
+export function BankingClient({ initialTransactions, properties, bankAccounts }: BankingClientProps) {
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [accountFilter, setAccountFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<string>('all');
+  const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newAccount, setNewAccount] = useState({
+    name: '',
+    institution: '',
+    account_type: 'checking' as const,
+    account_number_last4: '',
+    current_balance: '',
+  });
 
   const transactions = initialTransactions.filter((tx) => {
     const matchesSearch =
@@ -59,7 +86,8 @@ export function BankingClient({ initialTransactions, properties }: BankingClient
       tx.vendor?.toLowerCase().includes(search.toLowerCase());
     const matchesType = typeFilter === 'all' || tx.type === typeFilter;
     const matchesCategory = categoryFilter === 'all' || tx.category === categoryFilter;
-    return matchesSearch && matchesType && matchesCategory;
+    const matchesAccount = accountFilter === 'all' || tx.bank_account_id === accountFilter;
+    return matchesSearch && matchesType && matchesCategory && matchesAccount;
   });
 
   const totalIncome = transactions
@@ -76,6 +104,56 @@ export function BankingClient({ initialTransactions, properties }: BankingClient
 
   // Create a map of property IDs to addresses
   const propertyMap = new Map(properties.map(p => [p.id, p.address]));
+  const accountMap = new Map(bankAccounts.map(a => [a.id, a.name]));
+
+  const handleAddAccount = async () => {
+    setIsSubmitting(true);
+    try {
+      const result = await createBankAccountAction({
+        name: newAccount.name,
+        institution: newAccount.institution || null,
+        account_type: newAccount.account_type,
+        account_number_last4: newAccount.account_number_last4 || null,
+        current_balance: newAccount.current_balance ? parseFloat(newAccount.current_balance) : null,
+        is_default: bankAccounts.length === 0,
+        notes: null,
+      });
+
+      if (result.success) {
+        setIsAddAccountOpen(false);
+        setNewAccount({
+          name: '',
+          institution: '',
+          account_type: 'checking',
+          account_number_last4: '',
+          current_balance: '',
+        });
+        router.refresh();
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAccount = async (id: string) => {
+    if (confirm('Are you sure you want to delete this account?')) {
+      await deleteBankAccountAction(id);
+      router.refresh();
+    }
+  };
+
+  const getAccountIcon = (type: string) => {
+    switch (type) {
+      case 'credit_card':
+        return <CreditCard className="h-4 w-4" />;
+      default:
+        return <Landmark className="h-4 w-4" />;
+    }
+  };
+
+  const formatAccountType = (type: string) => {
+    return type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
 
   return (
     <div className="space-y-6">
@@ -101,6 +179,160 @@ export function BankingClient({ initialTransactions, properties }: BankingClient
             </Link>
           </Button>
         </div>
+      </div>
+
+      {/* Bank Accounts Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Bank Accounts</h2>
+          <Dialog open={isAddAccountOpen} onOpenChange={setIsAddAccountOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Account
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Bank Account</DialogTitle>
+                <DialogDescription>
+                  Add a new bank account to track transactions
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Account Name *</Label>
+                  <Input
+                    id="name"
+                    value={newAccount.name}
+                    onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })}
+                    placeholder="e.g., PNC Checking"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="institution">Institution</Label>
+                  <Input
+                    id="institution"
+                    value={newAccount.institution}
+                    onChange={(e) => setNewAccount({ ...newAccount, institution: e.target.value })}
+                    placeholder="e.g., PNC Bank"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="account_type">Account Type</Label>
+                    <Select
+                      value={newAccount.account_type}
+                      onValueChange={(value) => setNewAccount({ ...newAccount, account_type: value as any })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="checking">Checking</SelectItem>
+                        <SelectItem value="savings">Savings</SelectItem>
+                        <SelectItem value="credit_card">Credit Card</SelectItem>
+                        <SelectItem value="investment">Investment</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="last4">Last 4 Digits</Label>
+                    <Input
+                      id="last4"
+                      value={newAccount.account_number_last4}
+                      onChange={(e) => setNewAccount({ ...newAccount, account_number_last4: e.target.value })}
+                      placeholder="1234"
+                      maxLength={4}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="balance">Current Balance ($)</Label>
+                  <Input
+                    id="balance"
+                    type="number"
+                    step="0.01"
+                    value={newAccount.current_balance}
+                    onChange={(e) => setNewAccount({ ...newAccount, current_balance: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddAccountOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddAccount} disabled={!newAccount.name || isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Add Account
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {bankAccounts.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {bankAccounts.map((account) => (
+              <Card key={account.id} className={account.is_default ? 'border-primary' : ''}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {getAccountIcon(account.account_type)}
+                      <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteAccount(account.id)}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  {account.institution && (
+                    <CardDescription>{account.institution}</CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    ${(account.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="secondary" className="text-xs">
+                      {formatAccountType(account.account_type)}
+                    </Badge>
+                    {account.account_number_last4 && (
+                      <span className="text-xs text-muted-foreground">
+                        ****{account.account_number_last4}
+                      </span>
+                    )}
+                    {account.is_default && (
+                      <Badge variant="outline" className="text-xs">Default</Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+              <Landmark className="h-12 w-12 text-muted-foreground/50" />
+              <h3 className="mt-4 text-lg font-medium">No bank accounts</h3>
+              <p className="text-sm text-muted-foreground">
+                Add a bank account to organize your transactions
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Stats */}
@@ -161,7 +393,22 @@ export function BankingClient({ initialTransactions, properties }: BankingClient
               <CardTitle>Transactions</CardTitle>
               <CardDescription>All income and expense transactions</CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {bankAccounts.length > 0 && (
+                <Select value={accountFilter} onValueChange={setAccountFilter}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Accounts</SelectItem>
+                    {bankAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Select value={dateRange} onValueChange={setDateRange}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue />
@@ -217,8 +464,8 @@ export function BankingClient({ initialTransactions, properties }: BankingClient
                   <TableHead>Date</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Category</TableHead>
+                  <TableHead>Account</TableHead>
                   <TableHead>Property</TableHead>
-                  <TableHead>Source</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
@@ -239,6 +486,13 @@ export function BankingClient({ initialTransactions, properties }: BankingClient
                       <Badge variant="outline">{tx.category}</Badge>
                     </TableCell>
                     <TableCell>
+                      {tx.bank_account_id ? (
+                        <span className="text-sm">{accountMap.get(tx.bank_account_id) || '-'}</span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       {tx.property_id ? (
                         <Link
                           href={`/properties/${tx.property_id}`}
@@ -249,11 +503,6 @@ export function BankingClient({ initialTransactions, properties }: BankingClient
                       ) : (
                         <span className="text-sm text-muted-foreground">-</span>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-xs">
-                        {tx.imported_from}
-                      </Badge>
                     </TableCell>
                     <TableCell
                       className={`text-right font-medium ${

@@ -33,7 +33,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '@/types';
-import type { Property } from '@/types';
+import type { Property, BankAccount } from '@/types';
 import { importTransactionsAction } from '../actions';
 
 interface ParsedTransaction {
@@ -47,9 +47,10 @@ interface ParsedTransaction {
 
 interface ImportClientProps {
   properties: Property[];
+  bankAccounts: BankAccount[];
 }
 
-export function ImportClient({ properties }: ImportClientProps) {
+export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -57,6 +58,7 @@ export function ImportClient({ properties }: ImportClientProps) {
   const [isParsed, setIsParsed] = useState(false);
   const [transactions, setTransactions] = useState<ParsedTransaction[]>([]);
   const [propertyId, setPropertyId] = useState<string>('none');
+  const [bankAccountId, setBankAccountId] = useState<string>('none');
   const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -322,7 +324,8 @@ export function ImportClient({ properties }: ImportClientProps) {
           type: tx.type,
           category: tx.category,
           description: tx.description,
-        }))
+        })),
+        bankAccountId === 'none' ? null : bankAccountId
       );
 
       if (result.success) {
@@ -400,7 +403,7 @@ export function ImportClient({ properties }: ImportClientProps) {
           <CardTitle>Upload CSV File</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>CSV File</Label>
               <div className="flex gap-2">
@@ -417,6 +420,22 @@ export function ImportClient({ properties }: ImportClientProps) {
                   {file.name} ({(file.size / 1024).toFixed(1)} KB)
                 </p>
               )}
+            </div>
+            <div className="space-y-2">
+              <Label>Bank Account</Label>
+              <Select value={bankAccountId} onValueChange={setBankAccountId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Account</SelectItem>
+                  {bankAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Assign to Property</Label>

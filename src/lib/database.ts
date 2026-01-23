@@ -7,6 +7,7 @@ import type {
   MaintenanceRecord,
   ProformaScenario,
   FeedbackEntry,
+  BankAccount,
 } from '@/types';
 
 // ============ PROPERTIES ============
@@ -340,6 +341,88 @@ export async function deleteDocument(id: string) {
 
   if (error) {
     console.error('Error deleting document:', error);
+    return false;
+  }
+  return true;
+}
+
+// ============ BANK ACCOUNTS ============
+
+export async function getBankAccounts() {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .select('*')
+    .order('is_default', { ascending: false })
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching bank accounts:', error);
+    return [];
+  }
+  return data as BankAccount[];
+}
+
+export async function getBankAccount(id: string) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching bank account:', error);
+    return null;
+  }
+  return data as BankAccount;
+}
+
+export async function createBankAccount(account: Omit<BankAccount, 'id' | 'created_at' | 'updated_at'>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .insert(account)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating bank account:', error);
+    return null;
+  }
+  return data as BankAccount;
+}
+
+export async function updateBankAccount(id: string, updates: Partial<BankAccount>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating bank account:', error);
+    return null;
+  }
+  return data as BankAccount;
+}
+
+export async function deleteBankAccount(id: string) {
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from('bank_accounts')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting bank account:', error);
     return false;
   }
   return true;

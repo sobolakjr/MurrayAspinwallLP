@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -17,20 +16,25 @@ import {
 } from '@/components/ui/select';
 import { ArrowLeft, Loader2, Plus } from 'lucide-react';
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '@/types';
-import type { Property } from '@/types';
+import type { Property, BankAccount } from '@/types';
 import { createTransactionAction } from '../actions';
 
 interface NewTransactionClientProps {
   properties: Property[];
+  bankAccounts: BankAccount[];
 }
 
-export function NewTransactionClient({ properties }: NewTransactionClientProps) {
+export function NewTransactionClient({ properties, bankAccounts }: NewTransactionClientProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Find default bank account
+  const defaultAccount = bankAccounts.find(a => a.is_default);
+
   const [formData, setFormData] = useState({
     property_id: 'none',
+    bank_account_id: defaultAccount?.id || 'none',
     date: new Date().toISOString().split('T')[0],
     amount: '',
     type: 'expense' as 'income' | 'expense',
@@ -55,6 +59,7 @@ export function NewTransactionClient({ properties }: NewTransactionClientProps) 
     try {
       const result = await createTransactionAction({
         property_id: formData.property_id === 'none' ? null : formData.property_id,
+        bank_account_id: formData.bank_account_id === 'none' ? null : formData.bank_account_id,
         date: formData.date,
         amount: parseFloat(formData.amount),
         type: formData.type,
@@ -168,24 +173,45 @@ export function NewTransactionClient({ properties }: NewTransactionClientProps) 
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="property_id">Property</Label>
-              <Select
-                value={formData.property_id}
-                onValueChange={(value) => handleChange('property_id', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Property (General)</SelectItem>
-                  {properties.map((property) => (
-                    <SelectItem key={property.id} value={property.id}>
-                      {property.address}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="bank_account_id">Bank Account</Label>
+                <Select
+                  value={formData.bank_account_id}
+                  onValueChange={(value) => handleChange('bank_account_id', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Account</SelectItem>
+                    {bankAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="property_id">Property</Label>
+                <Select
+                  value={formData.property_id}
+                  onValueChange={(value) => handleChange('property_id', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Property (General)</SelectItem>
+                    {properties.map((property) => (
+                      <SelectItem key={property.id} value={property.id}>
+                        {property.address}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
