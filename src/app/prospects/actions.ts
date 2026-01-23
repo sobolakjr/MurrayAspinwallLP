@@ -1,6 +1,6 @@
 'use server';
 
-import { createProspect } from '@/lib/database';
+import { createProspect, updateProspect, deleteProspect } from '@/lib/database';
 import { revalidatePath } from 'next/cache';
 import type { Prospect } from '@/types';
 
@@ -52,6 +52,48 @@ export async function addProspectAction(input: CreateProspectInput): Promise<{ s
     return { success: true, prospect };
   } catch (error) {
     console.error('Error creating prospect:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function updateProspectAction(
+  id: string,
+  updates: Partial<Prospect>
+): Promise<{ success: boolean; prospect?: Prospect; error?: string }> {
+  try {
+    const prospect = await updateProspect(id, updates);
+
+    if (!prospect) {
+      return { success: false, error: 'Failed to update prospect' };
+    }
+
+    revalidatePath('/prospects');
+    revalidatePath(`/prospects/${id}`);
+    revalidatePath('/');
+
+    return { success: true, prospect };
+  } catch (error) {
+    console.error('Error updating prospect:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function deleteProspectAction(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const success = await deleteProspect(id);
+
+    if (!success) {
+      return { success: false, error: 'Failed to delete prospect' };
+    }
+
+    revalidatePath('/prospects');
+    revalidatePath('/');
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting prospect:', error);
     return { success: false, error: 'An unexpected error occurred' };
   }
 }
