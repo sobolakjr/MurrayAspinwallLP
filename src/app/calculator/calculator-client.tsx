@@ -82,11 +82,16 @@ export function CalculatorClient({ prospect }: CalculatorClientProps) {
         }
       }
 
+      // Use listing price if available, otherwise fall back to last sale price
+      const purchasePrice = apiData?.listingPrice
+        ? Number(apiData.listingPrice)
+        : Number(prospect.list_price) || 250000;
+
       setScenario(prev => ({
         ...prev,
         prospect_id: prospect.id,
         name: prospect.address,
-        purchase_price: Number(prospect.list_price) || prev.purchase_price,
+        purchase_price: purchasePrice,
         taxes: annualTaxes,
       }));
     }

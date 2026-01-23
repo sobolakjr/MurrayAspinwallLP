@@ -68,7 +68,15 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFetchingPrice, setIsFetchingPrice] = useState<string | null>(null);
-  const [listPrice, setListPrice] = useState<number | null>(Number(prospect.list_price) || null);
+
+  // Pricing state - separate listing price from last sale price
+  const lastSalePrice = Number(prospect.list_price) || 0; // From public records
+  const [listingPrice, setListingPrice] = useState<string>(
+    (prospect.api_data as any)?.listingPrice?.toString() || ''
+  );
+  const [listingPriceSource, setListingPriceSource] = useState<'manual' | 'fetched' | null>(
+    (prospect.api_data as any)?.listingPriceSource || null
+  );
 
   const handleRefreshApiData = async () => {
     setIsRefreshing(true);
@@ -97,11 +105,19 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      // Store listing price info in api_data
+      const currentApiData = (prospect.api_data || {}) as Record<string, unknown>;
+      const updatedApiData = {
+        ...currentApiData,
+        listingPrice: listingPrice ? parseFloat(listingPrice) : null,
+        listingPriceSource: listingPriceSource,
+      };
+
       const result = await updateProspectAction(prospect.id, {
         status,
         notes,
         listing_urls: listingUrls.length > 0 ? listingUrls : null,
-        list_price: listPrice,
+        api_data: updatedApiData,
       });
       if (!result.success) {
         console.error('Failed to save:', result.error);
@@ -137,7 +153,8 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
       const data = await response.json();
 
       if (data.success && data.listPrice) {
-        setListPrice(data.listPrice);
+        setListingPrice(data.listPrice.toString());
+        setListingPriceSource('fetched');
         alert(`Found list price: $${data.listPrice.toLocaleString()}`);
       } else {
         alert(data.error || 'Could not extract price from listing. The site may be blocking automated access.');
@@ -147,6 +164,13 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
       alert('Failed to fetch listing price');
     } finally {
       setIsFetchingPrice(null);
+    }
+  };
+
+  const handleListingPriceChange = (value: string) => {
+    setListingPrice(value);
+    if (listingPriceSource !== 'fetched') {
+      setListingPriceSource('manual');
     }
   };
 
@@ -360,18 +384,65 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Listing Price - Large, Editable */}
             <div>
-              <p className="text-sm text-muted-foreground">
-                {listPrice !== Number(prospect.list_price) ? 'List Price (from listing)' : 'Last Sale Price'}
-              </p>
-              <p className="text-3xl font-bold">
-                ${(listPrice || 0).toLocaleString()}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {listPrice !== Number(prospect.list_price)
-                  ? 'Fetched from listing URL'
-                  : 'From public records (not current listing)'}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-muted-foreground">Listing Price</p>
+                {listingPriceSource && (
+                  <Badge
+                    variant={listingPriceSource === 'fetched' ? 'default' : 'secondary'}
+                    className="text-xs"
+                  >
+                    {listingPriceSource === 'fetched' ? 'Fetched' : 'Manual'}
+                  </Badge>
+                )}
+              </div>
+              {listingPriceSource === 'fetched' ? (
+                <p className="text-3xl font-bold">
+                  ${parseFloat(listingPrice || '0').toLocaleString()}
+                </p>
+              ) : (
+                <div className="relative mt-1">
+                  <DollarSign className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    value={listingPrice}
+                    onChange={(e) => handleListingPriceChange(e.target.value)}
+                    placeholder="Enter listing price..."
+                    className="pl-10 text-2xl font-bold h-12"
+                  />
+                </div>
+              )}
+              {listingPriceSource === 'fetched' && (
+                <button
+                  onClick={() => setListingPriceSource('manual')}
+                  className="text-xs text-blue-600 hover:underline mt-1"
+                >
+                  Edit manually
+                </button>
+              )}
+            </div>
+
+            {/* Other pricing info - smaller, grid layout */}
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+              <div>
+                <p className="text-sm text-muted-foreground">Last Sale Price</p>
+                <p className="font-medium">${lastSalePrice.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">From public records</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Price per Sqft</p>
+                <p className="font-medium">
+                  {prospect.sqft && listingPrice
+                    ? `$${Math.round(parseFloat(listingPrice) / prospect.sqft).toLocaleString()}`
+                    : prospect.sqft && lastSalePrice
+                    ? `$${Math.round(lastSalePrice / prospect.sqft).toLocaleString()}`
+                    : 'N/A'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {listingPrice ? 'Based on listing' : 'Based on last sale'}
+                </p>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -379,20 +450,12 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
                 <p className="font-medium">{prospect.days_on_market || 'N/A'}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Price per Sqft</p>
-                <p className="font-medium">
-                  {prospect.sqft && listPrice
-                    ? `$${Math.round(listPrice / prospect.sqft).toLocaleString()}`
-                    : 'N/A'}
+                <p className="text-sm text-muted-foreground">Added</p>
+                <p className="font-medium flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  {new Date(prospect.created_at).toLocaleDateString()}
                 </p>
               </div>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Added</p>
-              <p className="font-medium flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                {new Date(prospect.created_at).toLocaleDateString()}
-              </p>
             </div>
           </CardContent>
         </Card>
