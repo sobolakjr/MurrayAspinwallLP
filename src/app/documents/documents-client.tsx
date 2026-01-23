@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -22,6 +23,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -29,35 +39,35 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   FileText,
-  Upload,
   Search,
   MoreHorizontal,
-  Download,
   Trash2,
-  Eye,
+  ExternalLink,
   Building2,
   FolderOpen,
   File,
-  FileImage,
-  FileSpreadsheet,
+  Link as LinkIcon,
+  Loader2,
+  Plus,
 } from 'lucide-react';
 import type { Property, Prospect } from '@/types';
+import { createDocumentAction, deleteDocumentAction } from './actions';
+
+interface Document {
+  id: string;
+  name: string;
+  type: string;
+  file_url: string;
+  file_size: number | null;
+  property_id: string | null;
+  prospect_id: string | null;
+  created_at: string;
+}
 
 interface DocumentsClientProps {
   properties: Property[];
   prospects: Prospect[];
-}
-
-// Document type for display (would come from database in real implementation)
-interface Document {
-  id: string;
-  name: string;
-  type: 'lease' | 'inspection' | 'insurance' | 'tax' | 'receipt' | 'other';
-  file_type: string;
-  size: number;
-  property_id?: string;
-  prospect_id?: string;
-  uploaded_at: string;
+  initialDocuments: Document[];
 }
 
 const documentTypeLabels: Record<string, string> = {
@@ -65,23 +75,40 @@ const documentTypeLabels: Record<string, string> = {
   inspection: 'Inspection Report',
   insurance: 'Insurance',
   tax: 'Tax Document',
-  receipt: 'Receipt',
+  deed: 'Deed',
+  contract: 'Contract',
   other: 'Other',
 };
 
-const getFileIcon = (fileType: string) => {
-  if (fileType.includes('image')) return FileImage;
-  if (fileType.includes('spreadsheet') || fileType.includes('excel') || fileType.includes('csv')) return FileSpreadsheet;
-  return File;
+// Detect source from URL
+const getSourceFromUrl = (url: string): { source: string; icon: string } => {
+  if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
+    return { source: 'Google Drive', icon: '📁' };
+  }
+  if (url.includes('dropbox.com')) {
+    return { source: 'Dropbox', icon: '📦' };
+  }
+  if (url.includes('onedrive.com') || url.includes('sharepoint.com')) {
+    return { source: 'OneDrive', icon: '☁️' };
+  }
+  return { source: 'Link', icon: '🔗' };
 };
 
-export function DocumentsClient({ properties, prospects }: DocumentsClientProps) {
+export function DocumentsClient({ properties, prospects, initialDocuments }: DocumentsClientProps) {
+  const [documents, setDocuments] = useState<Document[]>(initialDocuments);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [propertyFilter, setPropertyFilter] = useState<string>('all');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Placeholder - no documents yet
-  const documents: Document[] = [];
+  const [newDoc, setNewDoc] = useState({
+    name: '',
+    type: 'other',
+    file_url: '',
+    property_id: 'none',
+  });
 
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch = doc.name.toLowerCase().includes(search.toLowerCase());
@@ -90,10 +117,38 @@ export function DocumentsClient({ properties, prospects }: DocumentsClientProps)
     return matchesSearch && matchesType && matchesProperty;
   });
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const handleAddDocument = async () => {
+    if (!newDoc.name || !newDoc.file_url) return;
+
+    setIsSubmitting(true);
+    try {
+      const result = await createDocumentAction({
+        name: newDoc.name,
+        type: newDoc.type,
+        file_url: newDoc.file_url,
+        property_id: newDoc.property_id === 'none' ? null : newDoc.property_id,
+      });
+
+      if (result.success && result.document) {
+        setDocuments([result.document, ...documents]);
+        setNewDoc({ name: '', type: 'other', file_url: '', property_id: 'none' });
+        setIsDialogOpen(false);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteDocument = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const result = await deleteDocumentAction(id);
+      if (result.success) {
+        setDocuments(documents.filter(d => d.id !== id));
+      }
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -106,10 +161,110 @@ export function DocumentsClient({ properties, prospects }: DocumentsClientProps)
             Store and manage property documents
           </p>
         </div>
-        <Button>
-          <Upload className="mr-2 h-4 w-4" />
-          Upload Document
-        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Document
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Document Link</DialogTitle>
+              <DialogDescription>
+                Link a document from Google Drive, Dropbox, or any URL
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Document Name *</Label>
+                <Input
+                  id="name"
+                  value={newDoc.name}
+                  onChange={(e) => setNewDoc({ ...newDoc, name: e.target.value })}
+                  placeholder="e.g., Lease Agreement - 123 Main St"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="url">Document URL *</Label>
+                <Input
+                  id="url"
+                  value={newDoc.file_url}
+                  onChange={(e) => setNewDoc({ ...newDoc, file_url: e.target.value })}
+                  placeholder="Paste Google Drive, Dropbox, or other link"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Supports Google Drive, Dropbox, OneDrive, and any direct link
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="type">Document Type</Label>
+                  <Select
+                    value={newDoc.type}
+                    onValueChange={(value) => setNewDoc({ ...newDoc, type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lease">Lease Agreement</SelectItem>
+                      <SelectItem value="inspection">Inspection Report</SelectItem>
+                      <SelectItem value="insurance">Insurance</SelectItem>
+                      <SelectItem value="tax">Tax Document</SelectItem>
+                      <SelectItem value="deed">Deed</SelectItem>
+                      <SelectItem value="contract">Contract</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="property">Property</Label>
+                  <Select
+                    value={newDoc.property_id}
+                    onValueChange={(value) => setNewDoc({ ...newDoc, property_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Property</SelectItem>
+                      {properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.address}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {newDoc.file_url && (
+                <div className="flex items-center gap-2 rounded-lg bg-muted p-3">
+                  <span className="text-lg">{getSourceFromUrl(newDoc.file_url).icon}</span>
+                  <span className="text-sm">
+                    Detected: <strong>{getSourceFromUrl(newDoc.file_url).source}</strong>
+                  </span>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAddDocument}
+                disabled={isSubmitting || !newDoc.name || !newDoc.file_url}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <LinkIcon className="mr-2 h-4 w-4" />
+                )}
+                Add Document
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Stats */}
@@ -177,7 +332,8 @@ export function DocumentsClient({ properties, prospects }: DocumentsClientProps)
                   <SelectItem value="inspection">Inspections</SelectItem>
                   <SelectItem value="insurance">Insurance</SelectItem>
                   <SelectItem value="tax">Tax Documents</SelectItem>
-                  <SelectItem value="receipt">Receipts</SelectItem>
+                  <SelectItem value="deed">Deeds</SelectItem>
+                  <SelectItem value="contract">Contracts</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
@@ -213,28 +369,37 @@ export function DocumentsClient({ properties, prospects }: DocumentsClientProps)
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Source</TableHead>
                   <TableHead>Property</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Uploaded</TableHead>
+                  <TableHead>Added</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredDocuments.map((doc) => {
-                  const FileIcon = getFileIcon(doc.file_type);
                   const property = properties.find(p => p.id === doc.property_id);
+                  const { source, icon } = getSourceFromUrl(doc.file_url);
                   return (
                     <TableRow key={doc.id}>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <FileIcon className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{doc.name}</span>
-                        </div>
+                        <a
+                          href={doc.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 font-medium hover:underline text-primary"
+                        >
+                          <span>{icon}</span>
+                          {doc.name}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {documentTypeLabels[doc.type]}
+                          {documentTypeLabels[doc.type] || doc.type}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-muted-foreground">{source}</span>
                       </TableCell>
                       <TableCell>
                         {property ? (
@@ -248,9 +413,8 @@ export function DocumentsClient({ properties, prospects }: DocumentsClientProps)
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell>{formatFileSize(doc.size)}</TableCell>
                       <TableCell>
-                        {new Date(doc.uploaded_at).toLocaleDateString()}
+                        {new Date(doc.created_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -260,16 +424,26 @@ export function DocumentsClient({ properties, prospects }: DocumentsClientProps)
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View
+                            <DropdownMenuItem asChild>
+                              <a
+                                href={doc.file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                Open
+                              </a>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Download className="mr-2 h-4 w-4" />
-                              Download
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              <Trash2 className="mr-2 h-4 w-4" />
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => handleDeleteDocument(doc.id)}
+                              disabled={deletingId === doc.id}
+                            >
+                              {deletingId === doc.id ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="mr-2 h-4 w-4" />
+                              )}
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -284,12 +458,12 @@ export function DocumentsClient({ properties, prospects }: DocumentsClientProps)
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <FolderOpen className="h-12 w-12 text-muted-foreground/50" />
               <h3 className="mt-4 text-lg font-medium">No documents yet</h3>
-              <p className="text-sm text-muted-foreground">
-                Upload leases, inspections, insurance documents, and more
+              <p className="text-sm text-muted-foreground mt-1 max-w-md">
+                Link documents from Google Drive, Dropbox, or any URL to keep all your property documents organized in one place.
               </p>
-              <Button className="mt-4">
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Document
+              <Button className="mt-4" onClick={() => setIsDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Document
               </Button>
             </div>
           )}
@@ -319,7 +493,7 @@ export function DocumentsClient({ properties, prospects }: DocumentsClientProps)
                     <div className="flex-1">
                       <p className="font-medium">{property.address}</p>
                       <p className="text-sm text-muted-foreground">
-                        {propertyDocs.length} documents
+                        {propertyDocs.length} {propertyDocs.length === 1 ? 'document' : 'documents'}
                       </p>
                     </div>
                   </Link>

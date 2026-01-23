@@ -274,6 +274,77 @@ export async function deleteTransaction(id: string) {
   return true;
 }
 
+// ============ DOCUMENTS ============
+
+export async function getDocuments() {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('documents')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching documents:', error);
+    return [];
+  }
+  return data;
+}
+
+export async function getDocumentsByProperty(propertyId: string) {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('documents')
+    .select('*')
+    .eq('property_id', propertyId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching documents:', error);
+    return [];
+  }
+  return data;
+}
+
+export async function createDocument(document: {
+  property_id?: string | null;
+  prospect_id?: string | null;
+  name: string;
+  type: string;
+  file_url: string;
+  file_size?: number | null;
+}) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('documents')
+    .insert(document)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating document:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function deleteDocument(id: string) {
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from('documents')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting document:', error);
+    return false;
+  }
+  return true;
+}
+
 // ============ MAINTENANCE ============
 
 export async function getMaintenanceByProperty(propertyId: string) {
