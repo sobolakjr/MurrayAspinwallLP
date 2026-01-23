@@ -245,3 +245,224 @@ export function formatCurrency(value: number): string {
 export function formatPercent(value: number, decimals = 1): string {
   return `${value.toFixed(decimals)}%`;
 }
+
+/**
+ * Short-term rental scenario interface
+ */
+export interface STRScenario {
+  // Purchase
+  purchase_price: number;
+  down_payment_pct: number;
+  interest_rate: number;
+  loan_term: number;
+  closing_costs: number;
+  rehab_budget: number;
+  // STR Income
+  avg_daily_rate: number;
+  occupancy_rate: number; // percentage
+  seasonality: number[]; // 12 months, either $ daily rate or weight multiplier
+  seasonality_mode: 'rate' | 'weight'; // whether seasonality is absolute rates or weights
+  // STR Expenses
+  property_mgmt_pct: number;
+  listing_service_pct: number; // Airbnb, VRBO fees
+  cleaning_cost_per_turnover: number;
+  turnovers_per_year: number;
+  capital_reserve_pct: number;
+  // Fixed Expenses
+  insurance: number;
+  taxes: number;
+  hoa: number;
+  utilities: number;
+  // Growth
+  appreciation_rate: number;
+  adr_growth_rate: number;
+}
+
+/**
+ * Default monthly weights (equal distribution)
+ */
+export const DEFAULT_SEASONALITY_WEIGHTS = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+
+/**
+ * Month names for display
+ */
+export const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+/**
+ * Calculate STR annual revenue with seasonality
+ */
+export function calculateSTRRevenue(
+  avgDailyRate: number,
+  occupancyRate: number,
+  seasonality: number[],
+  seasonalityMode: 'rate' | 'weight'
+): { monthlyRevenue: number[]; annualRevenue: number } {
+  const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const monthlyRevenue: number[] = [];
+
+  for (let i = 0; i < 12; i++) {
+    const dailyRate = seasonalityMode === 'rate'
+      ? seasonality[i]
+      : avgDailyRate * seasonality[i];
+    const occupiedDays = daysInMonth[i] * (occupancyRate / 100);
+    monthlyRevenue.push(dailyRate * occupiedDays);
+  }
+
+  const annualRevenue = monthlyRevenue.reduce((sum, m) => sum + m, 0);
+  return { monthlyRevenue, annualRevenue };
+}
+
+/**
+ * Calculate STR proforma analysis
+ */
+export function calculateSTRProforma(
+  scenario: STRScenario,
+  projectionYears = 30,
+  discountRate = 8
+): ProformaResults {
+  // Calculate loan details
+  const downPayment = scenario.purchase_price * (scenario.down_payment_pct / 100);
+  const loanAmount = scenario.purchase_price - downPayment;
+  const totalCashInvested = downPayment + scenario.closing_costs + scenario.rehab_budget;
+
+  // Calculate STR revenue
+  const { annualRevenue } = calculateSTRRevenue(
+    scenario.avg_daily_rate,
+    scenario.occupancy_rate,
+    scenario.seasonality,
+    scenario.seasonality_mode
+  );
+
+  const grossAnnualRent = annualRevenue;
+  const grossMonthlyRent = annualRevenue / 12;
+
+  // STR-specific expenses
+  const annualListingFees = grossAnnualRent * (scenario.listing_service_pct / 100);
+  const annualCleaningCosts = scenario.cleaning_cost_per_turnover * scenario.turnovers_per_year;
+  const annualCapitalReserve = grossAnnualRent * (scenario.capital_reserve_pct / 100);
+  const annualPropMgmt = grossAnnualRent * (scenario.property_mgmt_pct / 100);
+
+  // Fixed expenses
+  const annualInsurance = scenario.insurance;
+  const annualTaxes = scenario.taxes;
+  const annualHoa = scenario.hoa * 12;
+  const annualUtilities = scenario.utilities * 12;
+
+  // No vacancy concept in STR (occupancy is already factored in)
+  const annualVacancyLoss = 0;
+  const effectiveGrossAnnualIncome = grossAnnualRent;
+
+  // Total expenses
+  const totalAnnualExpenses =
+    annualListingFees +
+    annualCleaningCosts +
+    annualCapitalReserve +
+    annualPropMgmt +
+    annualInsurance +
+    annualTaxes +
+    annualHoa +
+    annualUtilities;
+
+  const totalMonthlyExpenses = totalAnnualExpenses / 12;
+
+  // Mortgage
+  const monthlyMortgagePayment = calculateMonthlyMortgage(
+    loanAmount,
+    scenario.interest_rate,
+    scenario.loan_term
+  );
+  const annualDebtService = monthlyMortgagePayment * 12;
+
+  // Cash flow
+  const noi = effectiveGrossAnnualIncome - totalAnnualExpenses;
+  const annualCashFlow = noi - annualDebtService;
+  const monthlyCashFlow = annualCashFlow / 12;
+  const effectiveGrossIncome = grossMonthlyRent;
+
+  // Key metrics
+  const capRate = scenario.purchase_price > 0 ? (noi / scenario.purchase_price) * 100 : 0;
+  const cashOnCashReturn = totalCashInvested > 0 ? (annualCashFlow / totalCashInvested) * 100 : 0;
+  const dscr = annualDebtService > 0 ? noi / annualDebtService : 0;
+
+  // Year-by-year projections
+  const yearlyProjections: YearlyProjection[] = [];
+  let cumulativeCashFlow = 0;
+  let currentPropertyValue = scenario.purchase_price;
+  let currentAnnualRevenue = grossAnnualRent;
+
+  const cashFlowsForIRR: number[] = [-totalCashInvested];
+
+  for (let year = 1; year <= projectionYears; year++) {
+    currentPropertyValue *= (1 + scenario.appreciation_rate / 100);
+
+    if (year > 1) {
+      currentAnnualRevenue *= (1 + scenario.adr_growth_rate / 100);
+    }
+
+    const yearExpenses = (
+      currentAnnualRevenue * (scenario.listing_service_pct / 100) +
+      scenario.cleaning_cost_per_turnover * scenario.turnovers_per_year +
+      currentAnnualRevenue * (scenario.capital_reserve_pct / 100) +
+      currentAnnualRevenue * (scenario.property_mgmt_pct / 100) +
+      annualInsurance + annualTaxes + annualHoa + annualUtilities
+    );
+
+    const yearCashFlow = currentAnnualRevenue - yearExpenses - annualDebtService;
+    cumulativeCashFlow += yearCashFlow;
+
+    const loanBalance = calculateLoanBalance(
+      loanAmount,
+      scenario.interest_rate,
+      scenario.loan_term,
+      year * 12
+    );
+
+    const equity = currentPropertyValue - loanBalance;
+
+    yearlyProjections.push({
+      year,
+      propertyValue: currentPropertyValue,
+      equity,
+      annualRent: currentAnnualRevenue,
+      annualCashFlow: yearCashFlow,
+      cumulativeCashFlow,
+      loanBalance,
+    });
+
+    if (year === projectionYears) {
+      const netSaleProceeds = currentPropertyValue * 0.94 - loanBalance;
+      cashFlowsForIRR.push(yearCashFlow + netSaleProceeds);
+    } else {
+      cashFlowsForIRR.push(yearCashFlow);
+    }
+  }
+
+  const irr = calculateIRR(cashFlowsForIRR);
+  const npv = calculateNPV(cashFlowsForIRR, discountRate);
+
+  return {
+    grossMonthlyRent,
+    effectiveGrossIncome,
+    totalMonthlyExpenses,
+    monthlyMortgagePayment,
+    monthlyCashFlow,
+    grossAnnualRent,
+    annualVacancyLoss,
+    effectiveGrossAnnualIncome,
+    totalAnnualExpenses,
+    annualDebtService,
+    annualCashFlow,
+    noi,
+    totalCashInvested,
+    loanAmount,
+    capRate,
+    cashOnCashReturn,
+    dscr,
+    yearlyProjections,
+    irr,
+    npv,
+  };
+}
