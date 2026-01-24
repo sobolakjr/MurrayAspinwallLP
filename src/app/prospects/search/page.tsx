@@ -19,6 +19,7 @@ import {
   Check,
 } from 'lucide-react';
 import { addProspectAction } from '../actions';
+import { ApiConfirmDialog } from '@/components/api-confirm-dialog';
 
 interface SearchResult {
   mls_number: string;
@@ -53,8 +54,14 @@ export default function ProspectSearchPage() {
   const [error, setError] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+  const [showApiConfirm, setShowApiConfirm] = useState(false);
+
+  const handleSearchClick = () => {
+    setShowApiConfirm(true);
+  };
 
   const handleSearch = async () => {
+    setShowApiConfirm(false);
     setIsLoading(true);
     setError(null);
     setHasSearched(true);
@@ -185,11 +192,11 @@ export default function ProspectSearchPage() {
                   placeholder="e.g., Pittsburgh, PA or 15201"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && location && handleSearch()}
+                  onKeyDown={(e) => e.key === 'Enter' && location && handleSearchClick()}
                 />
               </div>
               <div className="flex items-end">
-                <Button onClick={handleSearch} disabled={isLoading || !location}>
+                <Button onClick={handleSearchClick} disabled={isLoading || !location}>
                   {isLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
@@ -207,11 +214,11 @@ export default function ProspectSearchPage() {
                   placeholder="e.g., 5319 Camelia St, Pittsburgh, PA 15201"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && address && handleSearch()}
+                  onKeyDown={(e) => e.key === 'Enter' && address && handleSearchClick()}
                 />
               </div>
               <div className="flex items-end">
-                <Button onClick={handleSearch} disabled={isLoading || !address}>
+                <Button onClick={handleSearchClick} disabled={isLoading || !address}>
                   {isLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
@@ -336,6 +343,17 @@ export default function ProspectSearchPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* API Confirmation Dialog */}
+      <ApiConfirmDialog
+        open={showApiConfirm}
+        onOpenChange={setShowApiConfirm}
+        onConfirm={handleSearch}
+        title="Property Search"
+        description="This search will query the Rentcast API for property data."
+        apiName="Rentcast API"
+        estimatedCost="~$0.01 per search"
+      />
     </div>
   );
 }

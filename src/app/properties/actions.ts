@@ -1,8 +1,18 @@
 'use server';
 
-import { createProperty, updateProperty, deleteProperty } from '@/lib/database';
+import {
+  createProperty,
+  updateProperty,
+  deleteProperty,
+  createNeighbor,
+  updateNeighbor,
+  deleteNeighbor,
+  createPropertyCode,
+  updatePropertyCode,
+  deletePropertyCode,
+} from '@/lib/database';
 import { revalidatePath } from 'next/cache';
-import type { Property } from '@/types';
+import type { Property, Neighbor, PropertyCode } from '@/types';
 
 interface PropertyInput {
   address: string;
@@ -103,6 +113,158 @@ export async function deletePropertyAction(id: string): Promise<{ success: boole
     return { success: true };
   } catch (error) {
     console.error('Error deleting property:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+// ============ NEIGHBORS ============
+
+interface NeighborInput {
+  property_id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  relationship?: string;
+  notes?: string;
+}
+
+export async function createNeighborAction(
+  input: NeighborInput
+): Promise<{ success: boolean; neighbor?: Neighbor; error?: string }> {
+  try {
+    const neighbor = await createNeighbor({
+      property_id: input.property_id,
+      name: input.name,
+      address: input.address || null,
+      phone: input.phone || null,
+      email: input.email || null,
+      relationship: input.relationship || null,
+      notes: input.notes || null,
+    });
+
+    if (!neighbor) {
+      return { success: false, error: 'Failed to create neighbor' };
+    }
+
+    revalidatePath(`/properties/${input.property_id}`);
+
+    return { success: true, neighbor };
+  } catch (error) {
+    console.error('Error creating neighbor:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function updateNeighborAction(
+  id: string,
+  updates: Partial<NeighborInput>
+): Promise<{ success: boolean; neighbor?: Neighbor; error?: string }> {
+  try {
+    const neighbor = await updateNeighbor(id, updates as Partial<Neighbor>);
+
+    if (!neighbor) {
+      return { success: false, error: 'Failed to update neighbor' };
+    }
+
+    if (neighbor.property_id) {
+      revalidatePath(`/properties/${neighbor.property_id}`);
+    }
+
+    return { success: true, neighbor };
+  } catch (error) {
+    console.error('Error updating neighbor:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function deleteNeighborAction(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const success = await deleteNeighbor(id);
+
+    if (!success) {
+      return { success: false, error: 'Failed to delete neighbor' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting neighbor:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+// ============ PROPERTY CODES ============
+
+interface PropertyCodeInput {
+  property_id: string;
+  name: string;
+  code_type?: PropertyCode['code_type'];
+  value?: string;
+  holder_name?: string;
+  holder_phone?: string;
+  notes?: string;
+}
+
+export async function createPropertyCodeAction(
+  input: PropertyCodeInput
+): Promise<{ success: boolean; code?: PropertyCode; error?: string }> {
+  try {
+    const code = await createPropertyCode({
+      property_id: input.property_id,
+      name: input.name,
+      code_type: input.code_type || 'lock_code',
+      value: input.value || null,
+      holder_name: input.holder_name || null,
+      holder_phone: input.holder_phone || null,
+      notes: input.notes || null,
+    });
+
+    if (!code) {
+      return { success: false, error: 'Failed to create code' };
+    }
+
+    revalidatePath(`/properties/${input.property_id}`);
+
+    return { success: true, code };
+  } catch (error) {
+    console.error('Error creating property code:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function updatePropertyCodeAction(
+  id: string,
+  updates: Partial<PropertyCodeInput>
+): Promise<{ success: boolean; code?: PropertyCode; error?: string }> {
+  try {
+    const code = await updatePropertyCode(id, updates as Partial<PropertyCode>);
+
+    if (!code) {
+      return { success: false, error: 'Failed to update code' };
+    }
+
+    if (code.property_id) {
+      revalidatePath(`/properties/${code.property_id}`);
+    }
+
+    return { success: true, code };
+  } catch (error) {
+    console.error('Error updating property code:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function deletePropertyCodeAction(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const success = await deletePropertyCode(id);
+
+    if (!success) {
+      return { success: false, error: 'Failed to delete code' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting property code:', error);
     return { success: false, error: 'An unexpected error occurred' };
   }
 }

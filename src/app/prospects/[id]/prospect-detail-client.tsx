@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import type { Prospect, ProspectStatus } from '@/types';
 import { updateProspectAction, deleteProspectAction, refreshApiDataAction } from '../actions';
+import { ApiConfirmDialog } from '@/components/api-confirm-dialog';
 
 interface ProspectDetailClientProps {
   prospect: Prospect;
@@ -84,7 +85,15 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
     (prospect.api_data as any)?.listingPriceSource || null
   );
 
+  // API confirmation dialog state
+  const [showApiConfirm, setShowApiConfirm] = useState(false);
+
+  const handleRefreshClick = () => {
+    setShowApiConfirm(true);
+  };
+
   const handleRefreshApiData = async () => {
+    setShowApiConfirm(false);
     setIsRefreshing(true);
     try {
       const result = await refreshApiDataAction(
@@ -305,7 +314,7 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={handleRefreshApiData}
+            onClick={handleRefreshClick}
             disabled={isRefreshing}
           >
             {isRefreshing ? (
@@ -929,6 +938,17 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
           </>
         )}
       </div>
+
+      {/* API Confirmation Dialog */}
+      <ApiConfirmDialog
+        open={showApiConfirm}
+        onOpenChange={setShowApiConfirm}
+        onConfirm={handleRefreshApiData}
+        title={prospect.api_data ? 'Refresh Property Data' : 'Fetch Property Data'}
+        description={`This will ${prospect.api_data ? 'refresh' : 'fetch'} property data from the Rentcast API.`}
+        apiName="Rentcast API"
+        estimatedCost="~$0.01 per request"
+      />
     </div>
   );
 }

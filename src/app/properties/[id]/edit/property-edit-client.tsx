@@ -45,9 +45,11 @@ export function PropertyEditClient({ property }: PropertyEditClientProps) {
     mortgage_balance: property.mortgage_balance?.toString() || '',
     mortgage_rate: property.mortgage_rate?.toString() || '',
     mortgage_payment: property.mortgage_payment?.toString() || '',
-    status: property.status || 'rented',
+    status: property.status || 'own',
     monthly_rent: property.monthly_rent?.toString() || '',
     avg_nightly_rent: property.avg_nightly_rent?.toString() || '',
+    sold_price: property.sold_price?.toString() || '',
+    sold_date: property.sold_date || '',
     notes: property.notes || '',
   });
 
@@ -81,6 +83,8 @@ export function PropertyEditClient({ property }: PropertyEditClientProps) {
         status: formData.status,
         monthly_rent: formData.monthly_rent ? parseFloat(formData.monthly_rent) : undefined,
         avg_nightly_rent: formData.avg_nightly_rent ? parseFloat(formData.avg_nightly_rent) : undefined,
+        sold_price: formData.sold_price ? parseFloat(formData.sold_price) : undefined,
+        sold_date: formData.sold_date || undefined,
         notes: formData.notes || undefined,
       });
 
@@ -195,15 +199,40 @@ export function PropertyEditClient({ property }: PropertyEditClientProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="own">Own</SelectItem>
                       <SelectItem value="rented">Rented</SelectItem>
                       <SelectItem value="listed_rent">Listed (Rent)</SelectItem>
                       <SelectItem value="listed_sell">Listed (Sell)</SelectItem>
                       <SelectItem value="reno_changeover">Reno/Changeover</SelectItem>
                       <SelectItem value="listed_str">Listed (ST Rental)</SelectItem>
+                      <SelectItem value="sold">Sold</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
+              {formData.status === 'sold' && (
+                <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div className="space-y-2">
+                    <Label htmlFor="sold_price">Sold Price ($)</Label>
+                    <Input
+                      id="sold_price"
+                      type="number"
+                      value={formData.sold_price}
+                      onChange={(e) => handleChange('sold_price', e.target.value)}
+                      placeholder="Enter sale price"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sold_date">Sold Date</Label>
+                    <Input
+                      id="sold_date"
+                      type="date"
+                      value={formData.sold_date}
+                      onChange={(e) => handleChange('sold_date', e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="bedrooms">Bedrooms</Label>

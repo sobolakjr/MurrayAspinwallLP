@@ -51,6 +51,8 @@ Rental property investment management application for researching, analyzing, an
   - **Tenants** - Contact info, lease dates, rent amount
   - **Maintenance** - Repairs, vendors, costs, status
   - **Financials** - Transactions, P&L
+  - **Neighbors** - Neighbor contacts (name, address, phone, email, relationship)
+  - **Codes** - Lock codes, passwords, key holders (code type, value, holder info)
   - **Documents** - Leases, inspections, files
 - Edit property (`/properties/[id]/edit`)
 - Add new property (`/properties/new`)
@@ -449,15 +451,17 @@ ALTER COLUMN status TYPE TEXT;
 - [x] Budget vs Actual page
 - [x] Service Providers management
 - [x] Settings page
+- [x] Neighbors section for properties
+- [x] Codes/passwords/keys section for properties
+- [x] API request approval popup (cost management)
+- [x] Authentication (Supabase Auth) with login/signup pages
+- [x] User menu with sign out
+- [x] Protected routes (middleware)
 - [x] Supabase database connected
 - [x] Deployed to Vercel with custom domain
 
 ### Pending
-- [ ] Neighbors section for properties
-- [ ] Codes/passwords/keys section for properties
-- [ ] API request approval popup (cost management)
-- [ ] Authentication (Supabase Auth)
-- [ ] User roles and permissions
+- [ ] User roles and permissions (admin/viewer)
 - [ ] Tenant management UI improvements
 - [ ] Document uploads (Supabase Storage)
 - [ ] Reports page enhancements

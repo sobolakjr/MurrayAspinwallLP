@@ -475,15 +475,23 @@ export async function getDashboardStats() {
       portfolioValue: 0,
       totalEquity: 0,
       monthlyCashFlow: 0,
+      monthlyRentIncome: 0,
+      monthlyExpenses: 0,
       activeProspects: 0,
     };
   }
 
-  // Get properties (all statuses except none - these are all owned properties)
+  // Get properties (all statuses except sold)
   const { data: properties } = await supabase
     .from('properties')
-    .select('current_value, mortgage_balance')
-    .in('status', ['rented', 'listed_rent', 'listed_sell', 'reno_changeover', 'listed_str']);
+    .select('id, current_value, mortgage_balance, monthly_rent, mortgage_payment, status')
+    .in('status', ['own', 'rented', 'listed_rent', 'listed_sell', 'reno_changeover', 'listed_str']);
+
+  // Get active tenants for expected rent income
+  const { data: tenants } = await supabase
+    .from('tenants')
+    .select('rent_amount')
+    .eq('status', 'active');
 
   // Get active prospects count
   const { count: prospectsCount } = await supabase
@@ -496,24 +504,26 @@ export async function getDashboardStats() {
   const totalEquity = properties?.reduce((sum, p) =>
     sum + ((Number(p.current_value) || 0) - (Number(p.mortgage_balance) || 0)), 0) || 0;
 
-  // Get this month's transactions for cash flow
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  // Calculate expected monthly rent income from active tenants
+  const monthlyRentIncome = tenants?.reduce((sum, t) => sum + (Number(t.rent_amount) || 0), 0) || 0;
 
-  const { data: transactions } = await supabase
-    .from('transactions')
-    .select('amount, type')
-    .gte('date', startOfMonth.toISOString().split('T')[0]);
+  // If no tenant rent data, fall back to property monthly_rent for rented properties
+  const fallbackRentIncome = monthlyRentIncome === 0
+    ? properties?.filter(p => p.status === 'rented').reduce((sum, p) => sum + (Number(p.monthly_rent) || 0), 0) || 0
+    : 0;
 
-  const income = transactions?.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-  const expenses = transactions?.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+  const totalRentIncome = monthlyRentIncome + fallbackRentIncome;
+
+  // Calculate expected monthly mortgage expenses
+  const monthlyMortgage = properties?.reduce((sum, p) => sum + (Number(p.mortgage_payment) || 0), 0) || 0;
 
   return {
     totalProperties: properties?.length || 0,
     portfolioValue,
     totalEquity,
-    monthlyCashFlow: income - expenses,
+    monthlyCashFlow: totalRentIncome - monthlyMortgage,
+    monthlyRentIncome: totalRentIncome,
+    monthlyExpenses: monthlyMortgage,
     activeProspects: prospectsCount || 0,
   };
 }
