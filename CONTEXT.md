@@ -461,6 +461,7 @@ ALTER COLUMN status TYPE TEXT;
 - [x] Deployed to Vercel with custom domain
 
 ### Pending
+- [ ] Create two user accounts (owner + partner) with passwords in Supabase Auth
 - [ ] User roles and permissions (admin/viewer)
 - [ ] Tenant management UI improvements
 - [ ] Document uploads (Supabase Storage)
