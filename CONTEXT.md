@@ -464,7 +464,7 @@ ALTER COLUMN status TYPE TEXT;
 - [x] Create two user accounts (owner + partner) with passwords in Supabase Auth
   - Dave Sobolak: dave@omlie.com
   - Matt Nee: mdnee@uss.com
-- [ ] User roles and permissions (admin/viewer)
+- [x] User roles and permissions - **Not needed** (both users have equal access)
 - [ ] Tenant management UI improvements
 - [ ] Document uploads (Supabase Storage)
 - [ ] Reports page enhancements

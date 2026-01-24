@@ -903,3 +903,195 @@ export async function getBudgetVsActual(propertyId: string, year: number) {
     actual: transactions as Transaction[] || [],
   };
 }
+
+// ============ PROFORMA SCENARIOS ============
+
+export interface SavedScenario {
+  id: string;
+  prospect_id: string | null;
+  property_id: string | null;
+  name: string;
+  rental_type: 'ltr' | 'str';
+  scenario_data: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getScenariosByProspect(prospectId: string) {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('proforma_scenarios')
+    .select('*')
+    .eq('prospect_id', prospectId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching scenarios:', error);
+    return [];
+  }
+  return data as SavedScenario[];
+}
+
+export async function getScenariosByProperty(propertyId: string) {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('proforma_scenarios')
+    .select('*')
+    .eq('property_id', propertyId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching scenarios:', error);
+    return [];
+  }
+  return data as SavedScenario[];
+}
+
+export async function getAllScenarios() {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('proforma_scenarios')
+    .select('*, prospects(address, city, state), properties(address, city, state)')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching scenarios:', error);
+    return [];
+  }
+  return data;
+}
+
+export async function getScenario(id: string) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('proforma_scenarios')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching scenario:', error);
+    return null;
+  }
+  return data as SavedScenario;
+}
+
+export async function createScenario(scenario: {
+  prospect_id?: string | null;
+  property_id?: string | null;
+  name: string;
+  rental_type: 'ltr' | 'str';
+  scenario_data: Record<string, unknown>;
+}) {
+  if (!supabase) return null;
+
+  // For LTR scenarios, extract fields to match existing schema
+  // For STR scenarios, store in scenario_data
+  const insertData: Record<string, unknown> = {
+    prospect_id: scenario.prospect_id || null,
+    property_id: scenario.property_id || null,
+    name: scenario.name,
+    rental_type: scenario.rental_type,
+    scenario_data: scenario.scenario_data,
+  };
+
+  // For LTR, also populate the legacy columns for backwards compatibility
+  if (scenario.rental_type === 'ltr') {
+    const data = scenario.scenario_data as Record<string, number>;
+    insertData.purchase_price = data.purchase_price || 0;
+    insertData.down_payment_pct = data.down_payment_pct || 20;
+    insertData.interest_rate = data.interest_rate || 7;
+    insertData.loan_term = data.loan_term || 30;
+    insertData.closing_costs = data.closing_costs || 0;
+    insertData.rehab_budget = data.rehab_budget || 0;
+    insertData.monthly_rent = data.monthly_rent || 0;
+    insertData.vacancy_rate = data.vacancy_rate || 5;
+    insertData.property_mgmt_pct = data.property_mgmt_pct || 0;
+    insertData.insurance = data.insurance || 0;
+    insertData.taxes = data.taxes || 0;
+    insertData.maintenance_reserve_pct = data.maintenance_reserve_pct || 5;
+    insertData.hoa = data.hoa || 0;
+    insertData.utilities = data.utilities || 0;
+    insertData.appreciation_rate = data.appreciation_rate || 3;
+    insertData.rent_growth_rate = data.rent_growth_rate || 2;
+  } else {
+    // STR - set required fields to defaults
+    insertData.purchase_price = (scenario.scenario_data as Record<string, number>).purchase_price || 0;
+    insertData.monthly_rent = 0; // Not used for STR
+  }
+
+  const { data, error } = await supabase
+    .from('proforma_scenarios')
+    .insert(insertData)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating scenario:', error);
+    throw new Error(error.message);
+  }
+  return data as SavedScenario;
+}
+
+export async function updateScenario(id: string, updates: {
+  name?: string;
+  rental_type?: 'ltr' | 'str';
+  scenario_data?: Record<string, unknown>;
+}) {
+  if (!supabase) return null;
+
+  const updateData: Record<string, unknown> = { ...updates };
+
+  // For LTR, also update legacy columns
+  if (updates.rental_type === 'ltr' && updates.scenario_data) {
+    const data = updates.scenario_data as Record<string, number>;
+    updateData.purchase_price = data.purchase_price;
+    updateData.down_payment_pct = data.down_payment_pct;
+    updateData.interest_rate = data.interest_rate;
+    updateData.loan_term = data.loan_term;
+    updateData.closing_costs = data.closing_costs;
+    updateData.rehab_budget = data.rehab_budget;
+    updateData.monthly_rent = data.monthly_rent;
+    updateData.vacancy_rate = data.vacancy_rate;
+    updateData.property_mgmt_pct = data.property_mgmt_pct;
+    updateData.insurance = data.insurance;
+    updateData.taxes = data.taxes;
+    updateData.maintenance_reserve_pct = data.maintenance_reserve_pct;
+    updateData.hoa = data.hoa;
+    updateData.utilities = data.utilities;
+    updateData.appreciation_rate = data.appreciation_rate;
+    updateData.rent_growth_rate = data.rent_growth_rate;
+  }
+
+  const { data, error } = await supabase
+    .from('proforma_scenarios')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating scenario:', error);
+    throw new Error(error.message);
+  }
+  return data as SavedScenario;
+}
+
+export async function deleteScenario(id: string) {
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from('proforma_scenarios')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting scenario:', error);
+    return false;
+  }
+  return true;
+}

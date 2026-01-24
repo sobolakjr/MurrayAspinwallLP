@@ -13,10 +13,20 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { toast } from 'sonner';
+import { saveScenarioAction } from './actions';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   DollarSign,
   TrendingUp,
@@ -27,7 +37,11 @@ import {
   Calendar,
   Building2,
   Palmtree,
+  FolderOpen,
+  Trash2,
 } from 'lucide-react';
+import { deleteScenarioAction } from './actions';
+import type { SavedScenario } from '@/lib/database';
 import {
   calculateProforma,
   calculateSTRProforma,
@@ -55,6 +69,8 @@ import {
 
 interface CalculatorClientProps {
   prospect: Prospect | null;
+  savedScenarios?: SavedScenario[];
+  initialScenarioId?: string;
 }
 
 type RentalType = 'ltr' | 'str';
@@ -106,12 +122,113 @@ const defaultSTRScenario: STRScenario = {
   adr_growth_rate: 2,
 };
 
-export function CalculatorClient({ prospect }: CalculatorClientProps) {
+export function CalculatorClient({ prospect, savedScenarios = [], initialScenarioId }: CalculatorClientProps) {
   const [rentalType, setRentalType] = useState<RentalType>('ltr');
   const [ltrScenario, setLtrScenario] = useState(defaultLTRScenario);
   const [strScenario, setStrScenario] = useState(defaultSTRScenario);
   const [projectionYears, setProjectionYears] = useState(10);
   const [seasonalityOpen, setSeasonalityOpen] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [scenarioName, setScenarioName] = useState('');
+  const [scenarioId, setScenarioId] = useState<string | null>(initialScenarioId || null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [scenarios, setScenarios] = useState<SavedScenario[]>(savedScenarios);
+
+  // Load a saved scenario
+  const loadScenario = (scenario: SavedScenario) => {
+    setScenarioId(scenario.id);
+    setScenarioName(scenario.name);
+    setRentalType(scenario.rental_type as RentalType);
+
+    const data = scenario.scenario_data as Record<string, unknown>;
+
+    if (scenario.rental_type === 'ltr') {
+      setLtrScenario({
+        prospect_id: scenario.prospect_id,
+        property_id: scenario.property_id,
+        name: scenario.name,
+        is_default: false,
+        purchase_price: Number(data.purchase_price) || defaultLTRScenario.purchase_price,
+        down_payment_pct: Number(data.down_payment_pct) || defaultLTRScenario.down_payment_pct,
+        interest_rate: Number(data.interest_rate) || defaultLTRScenario.interest_rate,
+        loan_term: Number(data.loan_term) || defaultLTRScenario.loan_term,
+        closing_costs: Number(data.closing_costs) || defaultLTRScenario.closing_costs,
+        rehab_budget: Number(data.rehab_budget) || defaultLTRScenario.rehab_budget,
+        monthly_rent: Number(data.monthly_rent) || defaultLTRScenario.monthly_rent,
+        vacancy_rate: Number(data.vacancy_rate) || defaultLTRScenario.vacancy_rate,
+        property_mgmt_pct: Number(data.property_mgmt_pct) || defaultLTRScenario.property_mgmt_pct,
+        insurance: Number(data.insurance) || defaultLTRScenario.insurance,
+        taxes: Number(data.taxes) || defaultLTRScenario.taxes,
+        maintenance_reserve_pct: Number(data.maintenance_reserve_pct) || defaultLTRScenario.maintenance_reserve_pct,
+        hoa: Number(data.hoa) || defaultLTRScenario.hoa,
+        utilities: Number(data.utilities) || defaultLTRScenario.utilities,
+        appreciation_rate: Number(data.appreciation_rate) || defaultLTRScenario.appreciation_rate,
+        rent_growth_rate: Number(data.rent_growth_rate) || defaultLTRScenario.rent_growth_rate,
+      });
+    } else {
+      setStrScenario({
+        purchase_price: Number(data.purchase_price) || defaultSTRScenario.purchase_price,
+        down_payment_pct: Number(data.down_payment_pct) || defaultSTRScenario.down_payment_pct,
+        interest_rate: Number(data.interest_rate) || defaultSTRScenario.interest_rate,
+        loan_term: Number(data.loan_term) || defaultSTRScenario.loan_term,
+        closing_costs: Number(data.closing_costs) || defaultSTRScenario.closing_costs,
+        rehab_budget: Number(data.rehab_budget) || defaultSTRScenario.rehab_budget,
+        avg_daily_rate: Number(data.avg_daily_rate) || defaultSTRScenario.avg_daily_rate,
+        occupancy_rate: Number(data.occupancy_rate) || defaultSTRScenario.occupancy_rate,
+        seasonality: (data.seasonality as number[]) || defaultSTRScenario.seasonality,
+        seasonality_mode: (data.seasonality_mode as 'rate' | 'weight') || defaultSTRScenario.seasonality_mode,
+        property_mgmt_pct: Number(data.property_mgmt_pct) || defaultSTRScenario.property_mgmt_pct,
+        listing_service_pct: Number(data.listing_service_pct) || defaultSTRScenario.listing_service_pct,
+        cleaning_cost_per_turnover: Number(data.cleaning_cost_per_turnover) || defaultSTRScenario.cleaning_cost_per_turnover,
+        turnovers_per_year: Number(data.turnovers_per_year) || defaultSTRScenario.turnovers_per_year,
+        capital_reserve_pct: Number(data.capital_reserve_pct) || defaultSTRScenario.capital_reserve_pct,
+        insurance: Number(data.insurance) || defaultSTRScenario.insurance,
+        taxes: Number(data.taxes) || defaultSTRScenario.taxes,
+        hoa: Number(data.hoa) || defaultSTRScenario.hoa,
+        utilities: Number(data.utilities) || defaultSTRScenario.utilities,
+        appreciation_rate: Number(data.appreciation_rate) || defaultSTRScenario.appreciation_rate,
+        adr_growth_rate: Number(data.adr_growth_rate) || defaultSTRScenario.adr_growth_rate,
+      });
+    }
+
+    toast.success(`Loaded "${scenario.name}"`);
+  };
+
+  // Delete a scenario
+  const handleDeleteScenario = async (id: string, name: string) => {
+    if (!confirm(`Delete scenario "${name}"?`)) return;
+
+    const result = await deleteScenarioAction(id);
+    if (result.success) {
+      setScenarios(scenarios.filter((s) => s.id !== id));
+      if (scenarioId === id) {
+        setScenarioId(null);
+        setScenarioName('');
+      }
+      toast.success('Scenario deleted');
+    } else {
+      toast.error(result.error || 'Failed to delete scenario');
+    }
+  };
+
+  // Start a new scenario
+  const handleNewScenario = () => {
+    setScenarioId(null);
+    setScenarioName('');
+    setLtrScenario(defaultLTRScenario);
+    setStrScenario(defaultSTRScenario);
+    toast.success('Started new scenario');
+  };
+
+  // Load initial scenario if provided
+  useEffect(() => {
+    if (initialScenarioId && savedScenarios.length > 0) {
+      const scenario = savedScenarios.find((s) => s.id === initialScenarioId);
+      if (scenario) {
+        loadScenario(scenario);
+      }
+    }
+  }, [initialScenarioId, savedScenarios]);
 
   // Pre-populate from prospect data
   useEffect(() => {
@@ -175,6 +292,47 @@ export function CalculatorClient({ prospect }: CalculatorClientProps) {
     cashFlow: Math.round(year.cumulativeCashFlow),
   }));
 
+  const handleSaveScenario = async () => {
+    if (!scenarioName.trim()) {
+      toast.error('Please enter a name for this scenario.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const scenarioData = rentalType === 'ltr' ? ltrScenario : strScenario;
+
+      const result = await saveScenarioAction({
+        id: scenarioId || undefined,
+        prospect_id: prospect?.id || null,
+        name: scenarioName,
+        rental_type: rentalType,
+        scenario_data: scenarioData as Record<string, unknown>,
+      });
+
+      if (result.success) {
+        toast.success(`"${scenarioName}" has been saved successfully.`);
+        setSaveDialogOpen(false);
+        if (result.data) {
+          setScenarioId(result.data.id);
+          // Update local scenarios list
+          const existingIndex = scenarios.findIndex((s) => s.id === result.data!.id);
+          if (existingIndex >= 0) {
+            setScenarios(scenarios.map((s, i) => (i === existingIndex ? result.data! : s)));
+          } else {
+            setScenarios([result.data, ...scenarios]);
+          }
+        }
+      } else {
+        toast.error(result.error || 'An error occurred while saving.');
+      }
+    } catch (error) {
+      toast.error('An unexpected error occurred.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const cashFlowBreakdown = rentalType === 'ltr'
     ? [
         { name: 'Gross Rent', value: results.grossMonthlyRent },
@@ -214,10 +372,93 @@ export function CalculatorClient({ prospect }: CalculatorClientProps) {
             )}
           </div>
         </div>
-        <Button>
-          <Save className="mr-2 h-4 w-4" />
-          Save Scenario
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Load Saved Scenarios */}
+          {scenarios.length > 0 && (
+            <Select
+              value={scenarioId || ''}
+              onValueChange={(value) => {
+                if (value === 'new') {
+                  handleNewScenario();
+                } else {
+                  const scenario = scenarios.find((s) => s.id === value);
+                  if (scenario) loadScenario(scenario);
+                }
+              }}
+            >
+              <SelectTrigger className="w-[200px]">
+                <FolderOpen className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Load scenario..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="new">+ New Scenario</SelectItem>
+                {scenarios.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name} ({s.rental_type.toUpperCase()})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {/* Delete Current Scenario */}
+          {scenarioId && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => handleDeleteScenario(scenarioId, scenarioName)}
+              title="Delete this scenario"
+            >
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </Button>
+          )}
+
+          {/* Save Scenario */}
+          <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => {
+                if (!scenarioName && prospect) {
+                  setScenarioName(`${prospect.address} - ${rentalType.toUpperCase()}`);
+                }
+              }}>
+                <Save className="mr-2 h-4 w-4" />
+                {scenarioId ? 'Update' : 'Save'}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{scenarioId ? 'Update Scenario' : 'Save Scenario'}</DialogTitle>
+                <DialogDescription>
+                  {scenarioId ? 'Update' : 'Save'} this {rentalType === 'ltr' ? 'long-term rental' : 'short-term rental'} analysis.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="scenario-name">Scenario Name</Label>
+                  <Input
+                    id="scenario-name"
+                    value={scenarioName}
+                    onChange={(e) => setScenarioName(e.target.value)}
+                    placeholder="e.g., Conservative estimate"
+                  />
+                </div>
+                {prospect && (
+                  <p className="text-sm text-muted-foreground">
+                    Linked to: {prospect.address}
+                  </p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveScenario} disabled={isSaving}>
+                  {isSaving ? 'Saving...' : scenarioId ? 'Update' : 'Save'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Rental Type Toggle */}
@@ -487,13 +728,27 @@ export function CalculatorClient({ prospect }: CalculatorClientProps) {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Occupancy Rate %</Label>
-                  <Input
-                    type="number"
-                    value={strScenario.occupancy_rate}
-                    onChange={(e) => updateStrScenario('occupancy_rate', Number(e.target.value))}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Occupancy Rate %</Label>
+                    <Input
+                      type="number"
+                      value={strScenario.occupancy_rate}
+                      onChange={(e) => updateStrScenario('occupancy_rate', Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Total Nights/Year</Label>
+                    <Input
+                      type="number"
+                      value={Math.round(365 * (strScenario.occupancy_rate / 100))}
+                      onChange={(e) => {
+                        const nights = Number(e.target.value);
+                        const occupancy = Math.round((nights / 365) * 100 * 10) / 10;
+                        updateStrScenario('occupancy_rate', occupancy);
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* Seasonality Button */}

@@ -31,7 +31,9 @@ import {
   Check,
   AlertCircle,
   Loader2,
+  X,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '@/types';
 import type { Property, BankAccount } from '@/types';
 import { importTransactionsAction } from '../actions';
@@ -43,6 +45,7 @@ interface ParsedTransaction {
   type: 'income' | 'expense';
   category: string;
   selected: boolean;
+  property_id: string;
 }
 
 interface ImportClientProps {
@@ -60,6 +63,8 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
   const [propertyId, setPropertyId] = useState<string>('none');
   const [bankAccountId, setBankAccountId] = useState<string>('none');
   const [error, setError] = useState<string | null>(null);
+  const [checkedRows, setCheckedRows] = useState<Set<number>>(new Set());
+  const [bulkPropertyId, setBulkPropertyId] = useState<string>('none');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -254,6 +259,7 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
           type,
           category,
           selected: true,
+          property_id: 'none',
         });
       }
     }
@@ -274,7 +280,9 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
       if (parsed.length === 0) {
         setError('Could not parse any transactions from the file. Please check the CSV format.');
       } else {
-        setTransactions(parsed);
+        // Apply the default property selection to all parsed transactions
+        const withProperty = parsed.map((tx) => ({ ...tx, property_id: propertyId }));
+        setTransactions(withProperty);
         setIsParsed(true);
       }
     } catch (err) {
@@ -308,6 +316,54 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
     );
   };
 
+  const updateProperty = (index: number, property_id: string) => {
+    setTransactions((prev) =>
+      prev.map((tx, i) =>
+        i === index ? { ...tx, property_id } : tx
+      )
+    );
+  };
+
+  const updateAllProperties = (property_id: string) => {
+    setTransactions((prev) =>
+      prev.map((tx) => ({ ...tx, property_id }))
+    );
+  };
+
+  const toggleChecked = (index: number) => {
+    setCheckedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllChecked = () => {
+    if (checkedRows.size === transactions.length) {
+      setCheckedRows(new Set());
+    } else {
+      setCheckedRows(new Set(transactions.map((_, i) => i)));
+    }
+  };
+
+  const clearChecked = () => {
+    setCheckedRows(new Set());
+  };
+
+  const applyPropertyToChecked = (property_id: string) => {
+    setTransactions((prev) =>
+      prev.map((tx, i) =>
+        checkedRows.has(i) ? { ...tx, property_id } : tx
+      )
+    );
+    setCheckedRows(new Set());
+    setBulkPropertyId('none');
+  };
+
   const handleImport = async () => {
     const selectedTransactions = transactions.filter((tx) => tx.selected);
     if (selectedTransactions.length === 0) return;
@@ -318,7 +374,7 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
     try {
       const result = await importTransactionsAction(
         selectedTransactions.map((tx) => ({
-          property_id: propertyId === 'none' ? null : propertyId,
+          property_id: tx.property_id === 'none' ? null : tx.property_id,
           date: tx.date,
           amount: tx.amount,
           type: tx.type,
@@ -438,8 +494,16 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Assign to Property</Label>
-              <Select value={propertyId} onValueChange={setPropertyId}>
+              <Label>Set All Properties To</Label>
+              <Select
+                value={propertyId}
+                onValueChange={(value) => {
+                  setPropertyId(value);
+                  if (isParsed) {
+                    updateAllProperties(value);
+                  }
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -452,6 +516,9 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Edit per transaction below after parsing
+              </p>
             </div>
           </div>
           <Button onClick={handleParse} disabled={!file || isProcessing}>
@@ -491,13 +558,63 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Bulk Action Bar */}
+            {checkedRows.size > 0 && (
+              <div className="flex items-center gap-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <span className="text-sm font-medium text-blue-900">
+                  {checkedRows.size} selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-blue-700">Assign to:</Label>
+                  <Select
+                    value={bulkPropertyId}
+                    onValueChange={setBulkPropertyId}
+                  >
+                    <SelectTrigger className="w-[180px] bg-white">
+                      <SelectValue placeholder="Select property..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Property</SelectItem>
+                      {properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.address}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={() => applyPropertyToChecked(bulkPropertyId)}
+                  >
+                    Apply
+                  </Button>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearChecked}
+                  className="ml-auto"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear
+                </Button>
+              </div>
+            )}
+
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]">
+                    <Checkbox
+                      checked={checkedRows.size === transactions.length && transactions.length > 0}
+                      onCheckedChange={toggleAllChecked}
+                    />
+                  </TableHead>
                   <TableHead className="w-[50px]">Include</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Description</TableHead>
+                  <TableHead>Property</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
@@ -506,6 +623,12 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
               <TableBody>
                 {transactions.map((tx, index) => (
                   <TableRow key={index} className={!tx.selected ? 'opacity-50' : ''}>
+                    <TableCell>
+                      <Checkbox
+                        checked={checkedRows.has(index)}
+                        onCheckedChange={() => toggleChecked(index)}
+                      />
+                    </TableCell>
                     <TableCell>
                       <input
                         type="checkbox"
@@ -517,6 +640,24 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
                     <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {tx.description}
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={tx.property_id}
+                        onValueChange={(value) => updateProperty(index, value)}
+                      >
+                        <SelectTrigger className="w-[160px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No Property</SelectItem>
+                          {properties.map((property) => (
+                            <SelectItem key={property.id} value={property.id}>
+                              {property.address}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       <Select
