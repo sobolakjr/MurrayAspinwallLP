@@ -46,9 +46,11 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
       p.city.toLowerCase().includes(search.toLowerCase())
   );
 
-  const portfolioValue = properties.reduce((sum, p) => sum + (Number(p.current_value) || 0), 0);
-  const totalEquity = properties.reduce((sum, p) => sum + ((Number(p.current_value) || 0) - (Number(p.mortgage_balance) || 0)), 0);
-  const monthlyMortgage = properties.reduce((sum, p) => sum + (Number(p.mortgage_payment) || 0), 0);
+  // Exclude sold properties from portfolio calculations
+  const activeProperties = properties.filter((p) => p.status !== 'sold');
+  const portfolioValue = activeProperties.reduce((sum, p) => sum + (Number(p.current_value) || 0), 0);
+  const totalEquity = activeProperties.reduce((sum, p) => sum + ((Number(p.current_value) || 0) - (Number(p.mortgage_balance) || 0)), 0);
+  const monthlyMortgage = activeProperties.reduce((sum, p) => sum + (Number(p.mortgage_payment) || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -167,10 +169,16 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
                       {property.bedrooms}bd / {property.bathrooms}ba
                     </TableCell>
                     <TableCell className="text-right">
-                      ${(Number(property.current_value) || 0).toLocaleString()}
+                      {property.status === 'sold'
+                        ? `$${(Number(property.sold_price) || 0).toLocaleString()}`
+                        : `$${(Number(property.current_value) || 0).toLocaleString()}`
+                      }
                     </TableCell>
                     <TableCell className="text-right">
-                      ${((Number(property.current_value) || 0) - (Number(property.mortgage_balance) || 0)).toLocaleString()}
+                      {property.status === 'sold'
+                        ? '-'
+                        : `$${((Number(property.current_value) || 0) - (Number(property.mortgage_balance) || 0)).toLocaleString()}`
+                      }
                     </TableCell>
                     <TableCell>
                       <Badge

@@ -298,66 +298,102 @@ export function PropertyDetailClient({
       </div>
 
       {/* Stats */}
-      <div className={`grid gap-4 ${property.status === 'sold' ? 'md:grid-cols-2' : 'md:grid-cols-4'}`}>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current Value</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${(Number(property.current_value) || 0).toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Purchased at ${(Number(property.purchase_price) || 0).toLocaleString()}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Equity</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${equity.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              {((equity / (Number(property.current_value) || 1)) * 100).toFixed(1)}% of value
-            </p>
-          </CardContent>
-        </Card>
-        {property.status !== 'sold' && (
-          <>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Monthly Cash Flow</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${cashFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {cashFlow >= 0 ? '+' : ''}${cashFlow.toLocaleString()}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  ${monthlyRentIncome.toLocaleString()} rent - ${monthlyMortgage.toLocaleString()} mortgage
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {tenants.filter((t) => t.status === 'active').length}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  ${tenants.reduce((sum, t) => sum + (Number(t.rent_amount) || 0), 0).toLocaleString()}/mo rent
-                </p>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div>
+      {property.status === 'sold' ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Sold Price</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${(Number(property.sold_price) || 0).toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {property.sold_date ? `Sold on ${new Date(property.sold_date).toLocaleDateString()}` : 'Sale date not recorded'}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Profit/Loss</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const profitLoss = (Number(property.sold_price) || 0) - (Number(property.purchase_price) || 0);
+                return (
+                  <>
+                    <div className={`text-2xl font-bold ${profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {profitLoss >= 0 ? '+' : ''}${profitLoss.toLocaleString()}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Purchased at ${(Number(property.purchase_price) || 0).toLocaleString()}
+                    </p>
+                  </>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Current Value</CardTitle>
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${(Number(property.current_value) || 0).toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Purchased at ${(Number(property.purchase_price) || 0).toLocaleString()}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Equity</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${equity.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">
+                {((equity / (Number(property.current_value) || 1)) * 100).toFixed(1)}% of value
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Monthly Cash Flow</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${cashFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {cashFlow >= 0 ? '+' : ''}${cashFlow.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                ${monthlyRentIncome.toLocaleString()} rent - ${monthlyMortgage.toLocaleString()} mortgage
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {tenants.filter((t) => t.status === 'active').length}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                ${tenants.reduce((sum, t) => sum + (Number(t.rent_amount) || 0), 0).toLocaleString()}/mo rent
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
