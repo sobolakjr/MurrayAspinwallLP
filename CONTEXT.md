@@ -467,3 +467,51 @@ ALTER COLUMN status TYPE TEXT;
 - [ ] Reports page enhancements
 - [ ] Mobile responsive improvements
 - [ ] Email notifications
+
+---
+
+## Session Notes (January 2026)
+
+### Latest Session Summary
+This session added several major features:
+
+1. **Authentication (Supabase Auth)**
+   - Login/signup pages at `/login` and `/signup`
+   - Middleware protects all routes (redirects to login if not authenticated)
+   - Auth callback at `/auth/callback` for email confirmation
+   - User menu in header with sign out
+   - Files: `src/lib/supabase/client.ts`, `server.ts`, `middleware.ts`, `src/middleware.ts`
+   - To enable: Configure Supabase Auth in dashboard, add redirect URLs
+
+2. **Neighbors & Codes Tabs** (Property Detail)
+   - Full CRUD for neighbor contacts (name, address, phone, email, relationship)
+   - Full CRUD for codes/keys (lock codes, passwords, key holders)
+   - Server actions in `src/app/properties/actions.ts`
+
+3. **API Request Approval Popup**
+   - Confirmation dialog before Rentcast API calls
+   - Component: `src/components/api-confirm-dialog.tsx`
+   - Used on property search and prospect detail refresh
+
+4. **Sold Status for Properties**
+   - Added "Own" and "Sold" to status dropdown
+   - Sold properties show sold_price, sold_date, profit/loss
+   - Amber styling for sold badge and info card
+
+5. **Rent Income Fix**
+   - Dashboard and property detail now use tenant rent_amount or property monthly_rent
+   - Previously only looked at transactions (which showed $0)
+
+### Key Files Changed This Session
+- `src/app/properties/[id]/property-detail-client.tsx` - Neighbors, Codes tabs, sold display
+- `src/app/properties/[id]/edit/property-edit-client.tsx` - Sold status fields
+- `src/app/properties/actions.ts` - Neighbor/code CRUD actions
+- `src/lib/database.ts` - Updated getDashboardStats for rent income
+- `src/components/layout/Header.tsx` - User menu with auth
+- `src/app/layout.tsx` - AuthProvider wrapper
+
+### How to Resume
+When starting a new session, tell Claude:
+> "Read CONTEXT.md to understand the project, then [your task]"
+
+Or simply work in this directory - Claude will read CONTEXT.md automatically when needed.
