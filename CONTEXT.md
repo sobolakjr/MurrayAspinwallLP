@@ -461,7 +461,9 @@ ALTER COLUMN status TYPE TEXT;
 - [x] Deployed to Vercel with custom domain
 
 ### Pending
-- [ ] Create two user accounts (owner + partner) with passwords in Supabase Auth
+- [x] Create two user accounts (owner + partner) with passwords in Supabase Auth
+  - Dave Sobolak: dave@omlie.com
+  - Matt Nee: mdnee@uss.com
 - [ ] User roles and permissions (admin/viewer)
 - [ ] Tenant management UI improvements
 - [ ] Document uploads (Supabase Storage)
