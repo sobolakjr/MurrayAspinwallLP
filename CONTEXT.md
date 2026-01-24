@@ -475,8 +475,37 @@ ALTER COLUMN status TYPE TEXT;
 
 ## Session Notes (January 2026)
 
-### Latest Session Summary
-This session added several major features:
+### Session 2 - January 24, 2026
+
+**User Accounts Created:**
+- Dave Sobolak: dave@omlie.com (password: Pascal)
+- Matt Nee: mdnee@uss.com (password: Dexter)
+
+**Sold Status Fix:**
+- Added `sold_price` and `sold_date` columns to properties table
+- Updated database constraint to allow 'sold' status:
+  ```sql
+  ALTER TABLE properties DROP CONSTRAINT properties_status_check;
+  ALTER TABLE properties ADD CONSTRAINT properties_status_check CHECK (status IN ('own', 'sold', 'rented', 'listed_rent', 'listed_sell', 'reno_changeover', 'listed_str'));
+  ```
+- Sold properties now hide "Monthly Cash Flow" and "Active Tenants" cards
+- Only show "Current Value" and "Equity" for sold properties
+
+**Missing Database Tables Created:**
+```sql
+-- neighbors, property_codes, service_providers, budget_entries tables were missing
+-- Created all four tables with proper foreign keys and indexes
+```
+
+**Files Changed:**
+- `src/app/properties/[id]/property-detail-client.tsx` - Hide stats cards for sold properties
+- `src/app/properties/actions.ts` - Better error messages
+- `src/lib/database.ts` - Throw actual error messages on update failures
+- `.gitignore` - Added `supabase/.temp/`
+
+---
+
+### Session 1 Summary (Previous)
 
 1. **Authentication (Supabase Auth)**
    - Login/signup pages at `/login` and `/signup`
@@ -484,7 +513,6 @@ This session added several major features:
    - Auth callback at `/auth/callback` for email confirmation
    - User menu in header with sign out
    - Files: `src/lib/supabase/client.ts`, `server.ts`, `middleware.ts`, `src/middleware.ts`
-   - To enable: Configure Supabase Auth in dashboard, add redirect URLs
 
 2. **Neighbors & Codes Tabs** (Property Detail)
    - Full CRUD for neighbor contacts (name, address, phone, email, relationship)
@@ -494,7 +522,6 @@ This session added several major features:
 3. **API Request Approval Popup**
    - Confirmation dialog before Rentcast API calls
    - Component: `src/components/api-confirm-dialog.tsx`
-   - Used on property search and prospect detail refresh
 
 4. **Sold Status for Properties**
    - Added "Own" and "Sold" to status dropdown
@@ -503,15 +530,8 @@ This session added several major features:
 
 5. **Rent Income Fix**
    - Dashboard and property detail now use tenant rent_amount or property monthly_rent
-   - Previously only looked at transactions (which showed $0)
 
-### Key Files Changed This Session
-- `src/app/properties/[id]/property-detail-client.tsx` - Neighbors, Codes tabs, sold display
-- `src/app/properties/[id]/edit/property-edit-client.tsx` - Sold status fields
-- `src/app/properties/actions.ts` - Neighbor/code CRUD actions
-- `src/lib/database.ts` - Updated getDashboardStats for rent income
-- `src/components/layout/Header.tsx` - User menu with auth
-- `src/app/layout.tsx` - AuthProvider wrapper
+---
 
 ### How to Resume
 When starting a new session, tell Claude:
