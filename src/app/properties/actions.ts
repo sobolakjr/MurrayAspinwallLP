@@ -95,7 +95,8 @@ export async function updatePropertyAction(id: string, input: Partial<PropertyIn
     return { success: true, property };
   } catch (error) {
     console.error('Error updating property:', error);
-    return { success: false, error: 'An unexpected error occurred' };
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+    return { success: false, error: message };
   }
 }
 

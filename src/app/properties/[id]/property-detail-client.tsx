@@ -298,7 +298,7 @@ export function PropertyDetailClient({
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className={`grid gap-4 ${property.status === 'sold' ? 'md:grid-cols-2' : 'md:grid-cols-4'}`}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Current Value</CardTitle>
@@ -325,34 +325,38 @@ export function PropertyDetailClient({
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Cash Flow</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${cashFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {cashFlow >= 0 ? '+' : ''}${cashFlow.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              ${monthlyRentIncome.toLocaleString()} rent - ${monthlyMortgage.toLocaleString()} mortgage
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {tenants.filter((t) => t.status === 'active').length}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              ${tenants.reduce((sum, t) => sum + (Number(t.rent_amount) || 0), 0).toLocaleString()}/mo rent
-            </p>
-          </CardContent>
-        </Card>
+        {property.status !== 'sold' && (
+          <>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Monthly Cash Flow</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${cashFlow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {cashFlow >= 0 ? '+' : ''}${cashFlow.toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ${monthlyRentIncome.toLocaleString()} rent - ${monthlyMortgage.toLocaleString()} mortgage
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {tenants.filter((t) => t.status === 'active').length}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ${tenants.reduce((sum, t) => sum + (Number(t.rent_amount) || 0), 0).toLocaleString()}/mo rent
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Tabs */}

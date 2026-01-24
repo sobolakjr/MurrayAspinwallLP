@@ -75,7 +75,7 @@ export async function updateProperty(id: string, updates: Partial<Property>) {
 
   if (error) {
     console.error('Error updating property:', error);
-    return null;
+    throw new Error(error.message || 'Database update failed');
   }
   return data as Property;
 }
