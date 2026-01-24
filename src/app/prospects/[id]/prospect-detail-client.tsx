@@ -69,6 +69,12 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFetchingPrice, setIsFetchingPrice] = useState<string | null>(null);
 
+  // Realtor info state
+  const [realtorName, setRealtorName] = useState(prospect.realtor_name || '');
+  const [realtorPhone, setRealtorPhone] = useState(prospect.realtor_phone || '');
+  const [realtorEmail, setRealtorEmail] = useState(prospect.realtor_email || '');
+  const [realtorCompany, setRealtorCompany] = useState(prospect.realtor_company || '');
+
   // Pricing state - separate listing price from last sale price
   const lastSalePrice = Number(prospect.list_price) || 0; // From public records
   const [listingPrice, setListingPrice] = useState<string>(
@@ -117,6 +123,10 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
         status,
         notes,
         listing_urls: listingUrls.length > 0 ? listingUrls : null,
+        realtor_name: realtorName || null,
+        realtor_phone: realtorPhone || null,
+        realtor_email: realtorEmail || null,
+        realtor_company: realtorCompany || null,
         api_data: updatedApiData,
       });
       if (!result.success) {
@@ -546,6 +556,52 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
                 No listing URLs added yet
               </p>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Realtor Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Realtor Contact
+            </CardTitle>
+            <CardDescription>Listing agent information</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Name</p>
+              <Input
+                value={realtorName}
+                onChange={(e) => setRealtorName(e.target.value)}
+                placeholder="Agent name..."
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Company</p>
+              <Input
+                value={realtorCompany}
+                onChange={(e) => setRealtorCompany(e.target.value)}
+                placeholder="Brokerage name..."
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Phone</p>
+              <Input
+                value={realtorPhone}
+                onChange={(e) => setRealtorPhone(e.target.value)}
+                placeholder="(555) 123-4567"
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Email</p>
+              <Input
+                type="email"
+                value={realtorEmail}
+                onChange={(e) => setRealtorEmail(e.target.value)}
+                placeholder="agent@brokerage.com"
+              />
+            </div>
           </CardContent>
         </Card>
 

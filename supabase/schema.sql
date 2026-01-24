@@ -19,9 +19,11 @@ CREATE TABLE properties (
   sqft INTEGER,
   lot_size DECIMAL(10,2),
   year_built INTEGER,
-  status TEXT DEFAULT 'rented' CHECK (status IN ('rented', 'listed_rent', 'listed_sell', 'reno_changeover', 'listed_str')),
+  status TEXT DEFAULT 'own' CHECK (status IN ('own', 'sold', 'rented', 'listed_rent', 'listed_sell', 'reno_changeover', 'listed_str')),
   monthly_rent DECIMAL(10,2),
   avg_nightly_rent DECIMAL(10,2),
+  sold_price DECIMAL(12,2),
+  sold_date DATE,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -44,6 +46,10 @@ CREATE TABLE prospects (
   year_built INTEGER,
   days_on_market INTEGER,
   listing_urls TEXT[],
+  realtor_name TEXT,
+  realtor_phone TEXT,
+  realtor_email TEXT,
+  realtor_company TEXT,
   status TEXT DEFAULT 'researching' CHECK (status IN ('researching', 'offer_made', 'passed', 'won', 'lost')),
   api_data JSONB,
   notes TEXT,
@@ -223,6 +229,83 @@ CREATE TRIGGER maintenance_records_updated_at
 
 CREATE TRIGGER bank_accounts_updated_at
   BEFORE UPDATE ON bank_accounts
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Neighbors
+CREATE TABLE neighbors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  address TEXT,
+  phone TEXT,
+  email TEXT,
+  relationship TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_neighbors_property ON neighbors(property_id);
+
+-- Property codes (locks, passwords, key holders)
+CREATE TABLE property_codes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  code_type TEXT DEFAULT 'lock_code' CHECK (code_type IN ('lock_code', 'password', 'key_holder', 'gate_code', 'other')),
+  value TEXT,
+  holder_name TEXT,
+  holder_phone TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_property_codes_property ON property_codes(property_id);
+
+-- Service providers
+CREATE TABLE service_providers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('plumbing', 'electrical', 'hvac', 'landscaping', 'cleaning', 'roofing', 'general_contractor', 'pest_control', 'appliance_repair', 'locksmith', 'attorney', 'accountant', 'insurance', 'other')),
+  phone TEXT,
+  email TEXT,
+  website TEXT,
+  contact_name TEXT,
+  rating INTEGER CHECK (rating BETWEEN 1 AND 5),
+  total_spend DECIMAL(12,2) DEFAULT 0,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Budget entries
+CREATE TABLE budget_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  year INTEGER NOT NULL,
+  category TEXT NOT NULL,
+  annual_amount DECIMAL(12,2),
+  monthly_amounts DECIMAL(12,2)[],
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(property_id, year, category)
+);
+
+CREATE INDEX idx_budget_entries_property ON budget_entries(property_id);
+CREATE INDEX idx_budget_entries_year ON budget_entries(year);
+
+-- Triggers for new tables
+CREATE TRIGGER property_codes_updated_at
+  BEFORE UPDATE ON property_codes
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER service_providers_updated_at
+  BEFORE UPDATE ON service_providers
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER budget_entries_updated_at
+  BEFORE UPDATE ON budget_entries
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Row Level Security (enable when needed)

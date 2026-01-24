@@ -8,6 +8,10 @@ import type {
   ProformaScenario,
   FeedbackEntry,
   BankAccount,
+  Neighbor,
+  PropertyCode,
+  ServiceProvider,
+  BudgetEntry,
 } from '@/types';
 
 // ============ PROPERTIES ============
@@ -574,4 +578,318 @@ export async function getUpcomingTasks() {
   });
 
   return tasks.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
+// ============ NEIGHBORS ============
+
+export async function getNeighborsByProperty(propertyId: string) {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('neighbors')
+    .select('*')
+    .eq('property_id', propertyId)
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching neighbors:', error);
+    return [];
+  }
+  return data as Neighbor[];
+}
+
+export async function createNeighbor(neighbor: Omit<Neighbor, 'id' | 'created_at'>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('neighbors')
+    .insert(neighbor)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating neighbor:', error);
+    return null;
+  }
+  return data as Neighbor;
+}
+
+export async function updateNeighbor(id: string, updates: Partial<Neighbor>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('neighbors')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating neighbor:', error);
+    return null;
+  }
+  return data as Neighbor;
+}
+
+export async function deleteNeighbor(id: string) {
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from('neighbors')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting neighbor:', error);
+    return false;
+  }
+  return true;
+}
+
+// ============ PROPERTY CODES ============
+
+export async function getCodesByProperty(propertyId: string) {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('property_codes')
+    .select('*')
+    .eq('property_id', propertyId)
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching property codes:', error);
+    return [];
+  }
+  return data as PropertyCode[];
+}
+
+export async function createPropertyCode(code: Omit<PropertyCode, 'id' | 'created_at' | 'updated_at'>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('property_codes')
+    .insert(code)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating property code:', error);
+    return null;
+  }
+  return data as PropertyCode;
+}
+
+export async function updatePropertyCode(id: string, updates: Partial<PropertyCode>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('property_codes')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating property code:', error);
+    return null;
+  }
+  return data as PropertyCode;
+}
+
+export async function deletePropertyCode(id: string) {
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from('property_codes')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting property code:', error);
+    return false;
+  }
+  return true;
+}
+
+// ============ SERVICE PROVIDERS ============
+
+export async function getServiceProviders() {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('service_providers')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching service providers:', error);
+    return [];
+  }
+  return data as ServiceProvider[];
+}
+
+export async function getServiceProvidersByType(type: string) {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('service_providers')
+    .select('*')
+    .eq('type', type)
+    .order('rating', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching service providers:', error);
+    return [];
+  }
+  return data as ServiceProvider[];
+}
+
+export async function createServiceProvider(provider: Omit<ServiceProvider, 'id' | 'created_at' | 'updated_at'>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('service_providers')
+    .insert(provider)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating service provider:', error);
+    return null;
+  }
+  return data as ServiceProvider;
+}
+
+export async function updateServiceProvider(id: string, updates: Partial<ServiceProvider>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('service_providers')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating service provider:', error);
+    return null;
+  }
+  return data as ServiceProvider;
+}
+
+export async function deleteServiceProvider(id: string) {
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from('service_providers')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting service provider:', error);
+    return false;
+  }
+  return true;
+}
+
+// ============ BUDGET ENTRIES ============
+
+export async function getBudgetEntriesByProperty(propertyId: string, year?: number) {
+  if (!supabase) return [];
+
+  let query = supabase
+    .from('budget_entries')
+    .select('*')
+    .eq('property_id', propertyId)
+    .order('category', { ascending: true });
+
+  if (year) {
+    query = query.eq('year', year);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching budget entries:', error);
+    return [];
+  }
+  return data as BudgetEntry[];
+}
+
+export async function createBudgetEntry(entry: Omit<BudgetEntry, 'id' | 'created_at' | 'updated_at'>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('budget_entries')
+    .insert(entry)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating budget entry:', error);
+    return null;
+  }
+  return data as BudgetEntry;
+}
+
+export async function updateBudgetEntry(id: string, updates: Partial<BudgetEntry>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('budget_entries')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating budget entry:', error);
+    return null;
+  }
+  return data as BudgetEntry;
+}
+
+export async function deleteBudgetEntry(id: string) {
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from('budget_entries')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting budget entry:', error);
+    return false;
+  }
+  return true;
+}
+
+// ============ BUDGET VS ACTUAL ============
+
+export async function getBudgetVsActual(propertyId: string, year: number) {
+  if (!supabase) return { budget: [], actual: [] };
+
+  // Get budget entries for the year
+  const { data: budget } = await supabase
+    .from('budget_entries')
+    .select('*')
+    .eq('property_id', propertyId)
+    .eq('year', year);
+
+  // Get actual transactions for the year
+  const startDate = `${year}-01-01`;
+  const endDate = `${year}-12-31`;
+
+  const { data: transactions } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('property_id', propertyId)
+    .gte('date', startDate)
+    .lte('date', endDate);
+
+  return {
+    budget: budget as BudgetEntry[] || [],
+    actual: transactions as Transaction[] || [],
+  };
 }

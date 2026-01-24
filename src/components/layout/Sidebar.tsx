@@ -13,22 +13,49 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  Wrench,
+  FolderOpen,
+  PieChart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
-const navigation = [
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children?: { name: string; href: string }[];
+}
+
+const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Prospects', href: '/prospects', icon: Search },
   { name: 'Properties', href: '/properties', icon: Building2 },
   { name: 'Calculator', href: '/calculator', icon: Calculator },
   { name: 'Banking', href: '/banking', icon: CreditCard },
-  { name: 'Documents', href: '/documents', icon: FileText },
+  { name: 'Budget', href: '/budget', icon: PieChart },
+  {
+    name: 'Resources',
+    href: '/resources',
+    icon: FolderOpen,
+    children: [
+      { name: 'Documents', href: '/resources/documents' },
+      { name: 'Service Providers', href: '/resources/providers' },
+    ]
+  },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['Resources']);
+
+  const toggleMenu = (name: string) => {
+    setExpandedMenus(prev =>
+      prev.includes(name) ? prev.filter(m => m !== name) : [...prev, name]
+    );
+  };
 
   return (
     <aside
@@ -65,14 +92,63 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-2">
+      <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
         {navigation.map((item) => {
           const isActive = pathname === item.href ||
             (item.href !== '/' && pathname.startsWith(item.href));
+          const hasChildren = item.children && item.children.length > 0;
+          const isExpanded = expandedMenus.includes(item.name);
+
+          if (hasChildren && !collapsed) {
+            return (
+              <div key={item.name}>
+                <button
+                  onClick={() => toggleMenu(item.name)}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
+                >
+                  <item.icon className="h-5 w-5 shrink-0" />
+                  <span className="flex-1 text-left">{item.name}</span>
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 transition-transform',
+                      isExpanded && 'rotate-180'
+                    )}
+                  />
+                </button>
+                {isExpanded && (
+                  <div className="ml-4 mt-1 space-y-1 border-l pl-4">
+                    {item.children?.map((child) => {
+                      const isChildActive = pathname === child.href;
+                      return (
+                        <Link
+                          key={child.name}
+                          href={child.href}
+                          className={cn(
+                            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                            isChildActive
+                              ? 'bg-primary text-primary-foreground'
+                              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                          )}
+                        >
+                          {child.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <Link
               key={item.name}
-              href={item.href}
+              href={hasChildren ? item.children![0].href : item.href}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 isActive

@@ -24,6 +24,8 @@ interface PropertyInput {
   status?: string;
   monthly_rent?: number;
   avg_nightly_rent?: number;
+  sold_price?: number;
+  sold_date?: string;
   notes?: string;
 }
 
@@ -46,9 +48,11 @@ export async function createPropertyAction(input: PropertyInput): Promise<{ succ
       sqft: input.sqft || null,
       lot_size: input.lot_size || null,
       year_built: input.year_built || null,
-      status: (input.status as Property['status']) || 'rented',
+      status: (input.status as Property['status']) || 'own',
       monthly_rent: input.monthly_rent || null,
       avg_nightly_rent: input.avg_nightly_rent || null,
+      sold_price: input.sold_price || null,
+      sold_date: input.sold_date || null,
       notes: input.notes || null,
     });
 

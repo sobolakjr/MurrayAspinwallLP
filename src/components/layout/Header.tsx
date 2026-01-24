@@ -39,12 +39,9 @@ export function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
+        {/* Notifications - placeholder for future functionality */}
+        <Button variant="ghost" size="icon" className="relative" title="Notifications coming soon">
           <Bell className="h-5 w-5" />
-          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
-            2
-          </span>
         </Button>
       </div>
     </header>

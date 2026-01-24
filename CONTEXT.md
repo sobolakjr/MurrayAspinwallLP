@@ -68,12 +68,19 @@ Rental property investment management application for researching, analyzing, an
 
 ### Proforma Calculator (`/calculator`)
 - Full financial modeling for rental analysis
-- **Inputs:**
+- **LTR/STR Toggle** - Switch between long-term and short-term rental modes
+- **LTR (Long-Term Rental) Inputs:**
   - Purchase price, down payment %, interest rate, loan term
   - Closing costs, rehab budget
-  - Monthly rent, vacancy rate
+  - Monthly rent, vacancy rate, property management %
   - Insurance, taxes, HOA, maintenance reserve
   - Appreciation rate, rent growth rate
+- **STR (Short-Term Rental) Inputs:**
+  - Average daily rate (ADR), occupancy rate
+  - Seasonality table (weight or dollar rate by month)
+  - Property management %, listing service % (Airbnb/VRBO fees)
+  - Cleaning cost per turnover, turnovers per year
+  - Capital reserve %
 - **Calculated Outputs:**
   - Monthly/annual cash flow
   - Cap Rate
@@ -82,6 +89,7 @@ Rental property investment management application for researching, analyzing, an
   - IRR (Internal Rate of Return)
   - NPV (Net Present Value)
   - 5/10/15/30-year projections with charts
+  - STR-specific: Annual nights booked, annual revenue, effective ADR
 
 ### Banking (`/banking`)
 - Transaction list (income/expenses)
@@ -103,10 +111,27 @@ Rental property investment management application for researching, analyzing, an
   - Select bank account for import
   - Review and select transactions to import
 
-### Documents (`/documents`)
-- Document management for properties
-- Upload and organize files
-- Document types: Lease, Inspection, Insurance, Tax, Deed, Contract, Other
+### Resources (`/resources`)
+- **Documents** (`/resources/documents`):
+  - Document management for properties
+  - Link documents from Google Drive, Dropbox, or any URL
+  - Document types: Lease, Inspection, Insurance, Tax, Deed, Contract, Other
+- **Service Providers** (`/resources/providers`):
+  - Track trusted contractors and vendors
+  - Provider types: Plumbing, Electrical, HVAC, Landscaping, Cleaning, Roofing, General Contractor, Pest Control, Appliance Repair, Locksmith, Attorney, Accountant, Insurance
+  - Contact info: Name, phone, email, website, contact person
+  - Star rating (1-5)
+  - Total spend tracking
+  - Notes
+
+### Budget (`/budget`)
+- Budget vs Actual comparison by category
+- Filter by year and property
+- Set annual budget amounts by expense category
+- View actual spending from transactions
+- Variance analysis (over/under budget)
+- Monthly breakdown with expandable categories
+- Chart visualization of budget vs actual
 
 ### Settings (`/settings`)
 - **Profile:** Name, email, company/LLC name
@@ -131,6 +156,10 @@ Rental property investment management application for researching, analyzing, an
 | `documents` | File storage references |
 | `proforma_scenarios` | Financial analysis scenarios |
 | `feedback_entries` | Notes/ratings for prospects |
+| `neighbors` | Neighbor contacts for properties |
+| `property_codes` | Lock codes, passwords, key holders |
+| `service_providers` | Trusted contractors and vendors |
+| `budget_entries` | Budget amounts by category/year |
 
 ### Key Relationships
 - `tenants` → `properties` (many-to-one)
@@ -143,12 +172,21 @@ Rental property investment management application for researching, analyzing, an
 
 ### Property Status Values
 ```sql
-'rented' | 'listed_rent' | 'listed_sell' | 'reno_changeover' | 'listed_str'
+'own' | 'sold' | 'rented' | 'listed_rent' | 'listed_sell' | 'reno_changeover' | 'listed_str'
 ```
 
 ### Property Fields
 - `monthly_rent` - Monthly rent amount for long-term rentals
 - `avg_nightly_rent` - Average nightly rate for short-term rentals
+- `sold_price` - Sale price if property was sold
+- `sold_date` - Date of sale
+
+### Prospect Fields
+- `realtor_name` - Listing agent name
+- `realtor_phone` - Agent phone number
+- `realtor_email` - Agent email
+- `realtor_company` - Brokerage/company name
+- `listing_urls` - Array of listing URLs (Zillow, Redfin, etc.)
 
 ---
 
@@ -260,10 +298,15 @@ src/
 - `Document` - File reference
 - `ProformaScenario` - Financial analysis inputs
 - `FeedbackEntry` - Notes/ratings for prospects
+- `Neighbor` - Neighbor contact for a property
+- `PropertyCode` - Lock codes, passwords, key holders
+- `ServiceProvider` - Trusted contractor or vendor
+- `BudgetEntry` - Annual/monthly budget by category
 
 ### Enums
-- `PropertyStatus`: rented, listed_rent, listed_sell, reno_changeover, listed_str
+- `PropertyStatus`: own, sold, rented, listed_rent, listed_sell, reno_changeover, listed_str
 - `ProspectStatus`: researching, offer_made, passed, won, lost
+- `ServiceProviderType`: plumbing, electrical, hvac, landscaping, cleaning, roofing, general_contractor, pest_control, appliance_repair, locksmith, attorney, accountant, insurance, other
 - `TenantStatus`: active, past, pending
 - `TransactionType`: income, expense
 - `BankAccountType`: checking, savings, credit_card, investment, other
@@ -394,21 +437,29 @@ ALTER COLUMN status TYPE TEXT;
 - [x] Dashboard with portfolio stats
 - [x] Properties list and detail pages with tabs
 - [x] Property CRUD operations
-- [x] Multiple property status types
+- [x] Multiple property status types (own/sold/rented/etc.)
 - [x] Prospects list with status tracking
+- [x] Realtor contact info on prospects
 - [x] Rentcast property search (address, location)
-- [x] Proforma calculator with full metrics
+- [x] Proforma calculator with LTR/STR toggle
+- [x] STR seasonality table with weight/rate modes
 - [x] Banking transactions page
 - [x] Multiple bank account management
 - [x] CSV import (PNC format supported)
+- [x] Budget vs Actual page
+- [x] Service Providers management
 - [x] Settings page
 - [x] Supabase database connected
 - [x] Deployed to Vercel with custom domain
 
 ### Pending
+- [ ] Neighbors section for properties
+- [ ] Codes/passwords/keys section for properties
+- [ ] API request approval popup (cost management)
+- [ ] Authentication (Supabase Auth)
+- [ ] User roles and permissions
 - [ ] Tenant management UI improvements
 - [ ] Document uploads (Supabase Storage)
-- [ ] Authentication (Supabase Auth)
 - [ ] Reports page enhancements
 - [ ] Mobile responsive improvements
 - [ ] Email notifications

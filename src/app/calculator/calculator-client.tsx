@@ -37,6 +37,7 @@ import {
   MONTH_NAMES,
   type STRScenario,
 } from '@/lib/proforma-calculations';
+import { formatCurrencyCompact } from '@/lib/utils';
 import type { ProformaScenario, Prospect } from '@/types';
 import {
   LineChart,
@@ -778,6 +779,43 @@ export function CalculatorClient({ prospect }: CalculatorClientProps) {
             </Card>
           </div>
 
+          {/* STR-specific metrics */}
+          {rentalType === 'str' && (
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Annual Nights Booked</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {Math.round(365 * (strScenario.occupancy_rate / 100))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{strScenario.occupancy_rate}% occupancy</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Annual Revenue</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatCurrency(results.grossAnnualRent)}</div>
+                  <p className="text-xs text-muted-foreground">{formatCurrency(results.grossMonthlyRent)}/mo avg</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Effective ADR</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {formatCurrency(results.grossAnnualRent / Math.round(365 * (strScenario.occupancy_rate / 100)))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Revenue per night booked</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Tabs for detailed analysis */}
           <Card>
             <Tabs defaultValue="summary" className="p-6">
@@ -864,7 +902,7 @@ export function CalculatorClient({ prospect }: CalculatorClientProps) {
                     <BarChart data={cashFlowBreakdown}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
-                      <YAxis />
+                      <YAxis tickFormatter={(value) => formatCurrencyCompact(value)} />
                       <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                       <Bar dataKey="value">
                         {cashFlowBreakdown.map((entry, index) => (
@@ -897,7 +935,7 @@ export function CalculatorClient({ prospect }: CalculatorClientProps) {
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="year" />
-                      <YAxis />
+                      <YAxis tickFormatter={(value) => formatCurrencyCompact(value)} />
                       <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                       <Legend />
                       <Line

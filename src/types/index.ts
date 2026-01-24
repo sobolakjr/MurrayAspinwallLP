@@ -1,7 +1,7 @@
 // Database types for Rental Property Investment Manager
 
 export type PropertyType = 'single_family' | 'multi_family' | 'condo' | 'townhouse' | 'duplex' | 'triplex' | 'fourplex';
-export type PropertyStatus = 'rented' | 'listed_rent' | 'listed_sell' | 'reno_changeover' | 'listed_str';
+export type PropertyStatus = 'own' | 'sold' | 'rented' | 'listed_rent' | 'listed_sell' | 'reno_changeover' | 'listed_str';
 export type ProspectStatus = 'researching' | 'offer_made' | 'passed' | 'won' | 'lost';
 export type TenantStatus = 'active' | 'past' | 'pending';
 export type TransactionType = 'income' | 'expense';
@@ -10,6 +10,7 @@ export type MaintenanceCategory = 'plumbing' | 'electrical' | 'hvac' | 'applianc
 export type MaintenanceStatus = 'pending' | 'in_progress' | 'completed';
 export type DocumentType = 'lease' | 'inspection' | 'insurance' | 'tax' | 'deed' | 'contract' | 'other';
 export type BankAccountType = 'checking' | 'savings' | 'credit_card' | 'investment' | 'other';
+export type ServiceProviderType = 'plumbing' | 'electrical' | 'hvac' | 'landscaping' | 'cleaning' | 'roofing' | 'general_contractor' | 'pest_control' | 'appliance_repair' | 'locksmith' | 'attorney' | 'accountant' | 'insurance' | 'other';
 
 export interface BankAccount {
   id: string;
@@ -45,6 +46,9 @@ export interface Property {
   status: PropertyStatus;
   monthly_rent: number | null;
   avg_nightly_rent: number | null;
+  // Sold property fields
+  sold_price: number | null;
+  sold_date: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -66,6 +70,11 @@ export interface Prospect {
   lot_size: number | null;
   year_built: number | null;
   days_on_market: number | null;
+  // Realtor info
+  realtor_name: string | null;
+  realtor_phone: string | null;
+  realtor_email: string | null;
+  realtor_company: string | null;
   status: ProspectStatus;
   api_data: Record<string, unknown> | null;
   notes: string | null;
@@ -252,3 +261,96 @@ export const EXPENSE_CATEGORIES = [
 
 export type IncomeCategory = typeof INCOME_CATEGORIES[number];
 export type ExpenseCategory = typeof EXPENSE_CATEGORIES[number];
+
+// Neighbor contact for a property
+export interface Neighbor {
+  id: string;
+  property_id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  relationship: string | null; // e.g., "left", "right", "across", "behind"
+  notes: string | null;
+  created_at: string;
+}
+
+// Codes, passwords, and key holders for a property
+export interface PropertyCode {
+  id: string;
+  property_id: string;
+  name: string; // e.g., "Front door", "Garage", "WiFi", "Alarm"
+  code_type: 'lock_code' | 'password' | 'key_holder' | 'gate_code' | 'other';
+  value: string | null; // The actual code/password
+  holder_name: string | null; // Who has a key
+  holder_phone: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Service provider
+export interface ServiceProvider {
+  id: string;
+  name: string;
+  type: ServiceProviderType;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  contact_name: string | null;
+  rating: number | null; // 1-5 stars
+  total_spend: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Budget entry for a property
+export interface BudgetEntry {
+  id: string;
+  property_id: string;
+  year: number;
+  category: string;
+  annual_amount: number | null;
+  monthly_amounts: number[] | null; // Array of 12 monthly values
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Service provider categories
+export const SERVICE_PROVIDER_TYPES: ServiceProviderType[] = [
+  'plumbing',
+  'electrical',
+  'hvac',
+  'landscaping',
+  'cleaning',
+  'roofing',
+  'general_contractor',
+  'pest_control',
+  'appliance_repair',
+  'locksmith',
+  'attorney',
+  'accountant',
+  'insurance',
+  'other',
+];
+
+// Budget categories (same as expense categories plus some additions)
+export const BUDGET_CATEGORIES = [
+  'Mortgage',
+  'Insurance',
+  'Property Tax',
+  'HOA',
+  'Utilities',
+  'Repairs',
+  'Maintenance',
+  'Property Management',
+  'Landscaping',
+  'Pest Control',
+  'Capital Improvements',
+  'Reserves',
+  'Other',
+] as const;
+
+export type BudgetCategory = typeof BUDGET_CATEGORIES[number];
