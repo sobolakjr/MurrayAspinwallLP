@@ -34,6 +34,8 @@ import {
   Plus,
   X,
   ExternalLink,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import type { Prospect, ProspectStatus } from '@/types';
 import { updateProspectAction, deleteProspectAction, refreshApiDataAction } from '../actions';
@@ -87,6 +89,9 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
 
   // API confirmation dialog state
   const [showApiConfirm, setShowApiConfirm] = useState(false);
+
+  // Collapsible API data section
+  const [apiDataExpanded, setApiDataExpanded] = useState(false);
 
   const handleRefreshClick = () => {
     setShowApiConfirm(true);
@@ -910,30 +915,44 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
               </CardContent>
             </Card>
 
-            {/* Raw API Data Table */}
+            {/* Raw API Data Table - Collapsible */}
             <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
-                  Complete API Response
+              <CardHeader
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => setApiDataExpanded(!apiDataExpanded)}
+              >
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Database className="h-5 w-5" />
+                    Complete API Response
+                  </div>
+                  {apiDataExpanded ? (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  )}
                 </CardTitle>
-                <CardDescription>All data fields returned from Rentcast API</CardDescription>
+                <CardDescription>
+                  {apiDataExpanded ? 'Click to collapse' : 'Click to expand all data fields from Rentcast API'}
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="text-left py-2 px-3 font-medium w-1/3">Field</th>
-                        <th className="text-left py-2 px-3 font-medium">Value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {renderApiDataRows(prospect.api_data as Record<string, unknown>)}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
+              {apiDataExpanded && (
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="text-left py-2 px-3 font-medium w-1/3">Field</th>
+                          <th className="text-left py-2 px-3 font-medium">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {renderApiDataRows(prospect.api_data as Record<string, unknown>)}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              )}
             </Card>
           </>
         )}
