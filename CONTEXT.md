@@ -144,6 +144,20 @@ Rental property investment management application for researching, analyzing, an
 - **Default Values:** Vacancy rate, property management fee, maintenance reserve, appreciation rate, rent growth rate, interest rate
 - **Data Management:** Export properties, transactions, all data to CSV
 
+### Help (`/instructions`)
+- Comprehensive help documentation
+- Expandable sections for each feature area
+- Calculator formulas explained (Cap Rate, Cash on Cash, NOI, DSCR)
+- Quick Start Guide
+- Link to Feedback page
+
+### Feedback (`/feedback`)
+- Submit bug reports, UI/design suggestions, feature ideas
+- Three categories: Bug Report, UI/Design, Feature Idea
+- Stats cards showing counts per category
+- Filter by category
+- Delete functionality
+
 ---
 
 ## Database Schema (Supabase)
@@ -165,6 +179,7 @@ Rental property investment management application for researching, analyzing, an
 | `property_codes` | Lock codes, passwords, key holders |
 | `service_providers` | Trusted contractors and vendors |
 | `budget_entries` | Budget amounts by category/year |
+| `user_feedback` | Bug reports and feature requests |
 
 ### Key Relationships
 - `tenants` → `properties` (many-to-one)
@@ -579,6 +594,62 @@ ALTER COLUMN status TYPE TEXT;
 - `src/lib/database.ts` - Added proforma scenario CRUD functions
 - `src/app/properties/[id]/property-detail-client.tsx` - Sold property display
 - `src/app/properties/properties-client.tsx` - Exclude sold from totals
+
+---
+
+### Session 4 - January 24, 2026
+
+**Help/Instructions Page (`/instructions`):**
+- Comprehensive help page with expandable sections
+- Sections: Getting Started, Properties, Prospects, Calculator, Banking, CSV Import, Budget, Resources
+- Calculator section includes all formulas explained:
+  - Cap Rate: `NOI / Purchase Price × 100`
+  - Cash on Cash: `Annual Cash Flow / Total Cash Invested × 100`
+  - NOI: `Gross Income - Vacancy - Operating Expenses`
+  - DSCR: `NOI / Annual Debt Service`
+  - Total Cash Invested: `Down Payment + Closing Costs + Rehab`
+- Quick Start Guide card at top
+- Link to Feedback page at bottom
+
+**Feedback System (`/feedback`):**
+- Bug reports, UI/design suggestions, and feature ideas
+- Three categories with icons:
+  - **Bug Report** (fix-me) - Red, Bug icon
+  - **UI/Design** (style-me) - Purple, Palette icon
+  - **Feature Idea** (bright-idea) - Amber, Lightbulb icon
+- Stats cards showing counts per category
+- Category filter dropdown
+- Delete functionality with confirmation
+- New database table:
+  ```sql
+  CREATE TABLE user_feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    category TEXT NOT NULL CHECK (category IN ('fix-me', 'style-me', 'bright-idea')),
+    message TEXT NOT NULL,
+    user_email TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  ```
+
+**Sidebar Navigation Updated:**
+- Added "Help" link → `/instructions`
+- Added "Feedback" link → `/feedback`
+- Both at bottom of sidebar, above Settings
+
+**Properties Page Fix:**
+- Total Properties count now excludes sold properties (uses `activeProperties.length`)
+
+**New Files:**
+- `src/app/instructions/page.tsx` - Help page with expandable sections
+- `src/app/feedback/page.tsx` - Server component fetching feedback
+- `src/app/feedback/feedback-client.tsx` - Client component with form and list
+- `src/app/feedback/actions.ts` - Server actions for feedback CRUD
+
+**Files Changed:**
+- `src/components/layout/Sidebar.tsx` - Added Help and Feedback nav links
+- `src/lib/database.ts` - Added user feedback CRUD functions
+- `src/types/index.ts` - Added `UserFeedback` and `UserFeedbackCategory` types
+- `src/app/properties/properties-client.tsx` - Fixed Total Properties count
 
 ---
 
