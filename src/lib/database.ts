@@ -12,6 +12,7 @@ import type {
   PropertyCode,
   ServiceProvider,
   BudgetEntry,
+  UserFeedback,
 } from '@/types';
 
 // ============ PROPERTIES ============
@@ -1091,6 +1092,70 @@ export async function deleteScenario(id: string) {
 
   if (error) {
     console.error('Error deleting scenario:', error);
+    return false;
+  }
+  return true;
+}
+
+// ============ USER FEEDBACK ============
+
+export async function getUserFeedback() {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('user_feedback')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching user feedback:', error);
+    return [];
+  }
+  return data as UserFeedback[];
+}
+
+export async function getUserFeedbackByCategory(category: string) {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('user_feedback')
+    .select('*')
+    .eq('category', category)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching user feedback:', error);
+    return [];
+  }
+  return data as UserFeedback[];
+}
+
+export async function createUserFeedback(feedback: Omit<UserFeedback, 'id' | 'created_at'>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('user_feedback')
+    .insert(feedback)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating user feedback:', error);
+    throw new Error(error.message);
+  }
+  return data as UserFeedback;
+}
+
+export async function deleteUserFeedback(id: string) {
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from('user_feedback')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting user feedback:', error);
     return false;
   }
   return true;

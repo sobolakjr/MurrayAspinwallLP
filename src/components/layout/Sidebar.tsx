@@ -17,6 +17,8 @@ import {
   Wrench,
   FolderOpen,
   PieChart,
+  HelpCircle,
+  MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -165,8 +167,32 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Settings at bottom */}
-      <div className="border-t p-2">
+      {/* Bottom links */}
+      <div className="border-t p-2 space-y-1">
+        <Link
+          href="/instructions"
+          className={cn(
+            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+            pathname === '/instructions' && 'bg-primary text-primary-foreground',
+            collapsed && 'justify-center px-2'
+          )}
+          title={collapsed ? 'Help' : undefined}
+        >
+          <HelpCircle className="h-5 w-5 shrink-0" />
+          {!collapsed && <span>Help</span>}
+        </Link>
+        <Link
+          href="/feedback"
+          className={cn(
+            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+            pathname === '/feedback' && 'bg-primary text-primary-foreground',
+            collapsed && 'justify-center px-2'
+          )}
+          title={collapsed ? 'Feedback' : undefined}
+        >
+          <MessageSquare className="h-5 w-5 shrink-0" />
+          {!collapsed && <span>Feedback</span>}
+        </Link>
         <Link
           href="/settings"
           className={cn(

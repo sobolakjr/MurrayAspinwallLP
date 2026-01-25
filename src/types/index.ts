@@ -354,3 +354,14 @@ export const BUDGET_CATEGORIES = [
 ] as const;
 
 export type BudgetCategory = typeof BUDGET_CATEGORIES[number];
+
+// User feedback for bugs and feature requests
+export type UserFeedbackCategory = 'fix-me' | 'style-me' | 'bright-idea';
+
+export interface UserFeedback {
+  id: string;
+  category: UserFeedbackCategory;
+  message: string;
+  user_email: string | null;
+  created_at: string;
+}
