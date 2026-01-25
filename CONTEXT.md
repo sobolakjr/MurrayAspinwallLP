@@ -70,6 +70,7 @@ Rental property investment management application for researching, analyzing, an
 
 ### Proforma Calculator (`/calculator`)
 - Full financial modeling for rental analysis
+- **Save/Load Scenarios** - Save analyses to database, load and edit later
 - **LTR/STR Toggle** - Switch between long-term and short-term rental modes
 - **LTR (Long-Term Rental) Inputs:**
   - Purchase price, down payment %, interest rate, loan term
@@ -78,7 +79,7 @@ Rental property investment management application for researching, analyzing, an
   - Insurance, taxes, HOA, maintenance reserve
   - Appreciation rate, rent growth rate
 - **STR (Short-Term Rental) Inputs:**
-  - Average daily rate (ADR), occupancy rate
+  - Average daily rate (ADR), occupancy rate, **total nights/year**
   - Seasonality table (weight or dollar rate by month)
   - Property management %, listing service % (Airbnb/VRBO fees)
   - Cleaning cost per turnover, turnovers per year
@@ -112,6 +113,8 @@ Rental property investment management application for researching, analyzing, an
   - Map columns to categories
   - Select bank account for import
   - Review and select transactions to import
+  - **Per-transaction property assignment** - Assign each transaction to a different property
+  - **Bulk selection** - Check multiple transactions and assign to a property at once
 
 ### Resources (`/resources`)
 - **Documents** (`/resources/documents`):
@@ -488,8 +491,8 @@ ALTER COLUMN status TYPE TEXT;
   ALTER TABLE properties DROP CONSTRAINT properties_status_check;
   ALTER TABLE properties ADD CONSTRAINT properties_status_check CHECK (status IN ('own', 'sold', 'rented', 'listed_rent', 'listed_sell', 'reno_changeover', 'listed_str'));
   ```
-- Sold properties now hide "Monthly Cash Flow" and "Active Tenants" cards
-- Only show "Current Value" and "Equity" for sold properties
+- Sold properties show "Sold Price" and "Profit/Loss" instead of Current Value and Equity
+- Sold properties excluded from portfolio value and equity totals in properties list
 
 **Missing Database Tables Created:**
 ```sql
@@ -530,6 +533,52 @@ ALTER COLUMN status TYPE TEXT;
 
 5. **Rent Income Fix**
    - Dashboard and property detail now use tenant rent_amount or property monthly_rent
+
+---
+
+### Session 3 - January 24, 2026
+
+**Calculator Save/Load Scenarios:**
+- Added ability to save proforma scenarios to database
+- Load saved scenarios from dropdown
+- Update existing scenarios
+- Delete scenarios
+- Scenarios linked to prospects when created from prospect page
+- Added `rental_type` and `scenario_data` columns to `proforma_scenarios` table:
+  ```sql
+  ALTER TABLE proforma_scenarios ADD COLUMN rental_type TEXT DEFAULT 'ltr' CHECK (rental_type IN ('ltr', 'str'));
+  ALTER TABLE proforma_scenarios ADD COLUMN scenario_data JSONB DEFAULT '{}'::jsonb;
+  ALTER TABLE proforma_scenarios DROP CONSTRAINT scenario_property_check;
+  ```
+
+**STR Calculator Enhancement:**
+- Added "Total Nights/Year" input field
+- Syncs bidirectionally with Occupancy Rate %
+
+**Bank Import Bulk Property Assignment:**
+- Per-transaction property dropdown in review table
+- Bulk selection checkboxes for multiple transactions
+- Bulk action bar to assign property to all selected transactions
+- "Set All Properties To" dropdown to apply to all at once
+
+**Sold Properties Display Fix:**
+- Property detail: Shows "Sold Price" and "Profit/Loss" cards instead of Current Value/Equity
+- Properties list: Excludes sold from portfolio value and total equity calculations
+- Properties table: Shows sold price in Value column, "-" in Equity column
+
+**New Components Added:**
+- `src/components/ui/checkbox.tsx` - shadcn checkbox for bulk selection
+- `src/components/ui/sonner.tsx` - Toast notifications
+- `src/app/calculator/actions.ts` - Server actions for scenario CRUD
+
+**Files Changed:**
+- `src/app/banking/import/import-client.tsx` - Bulk property assignment
+- `src/app/calculator/calculator-client.tsx` - Save/load scenarios, total nights field
+- `src/app/calculator/page.tsx` - Fetch and pass saved scenarios
+- `src/app/layout.tsx` - Added Toaster component
+- `src/lib/database.ts` - Added proforma scenario CRUD functions
+- `src/app/properties/[id]/property-detail-client.tsx` - Sold property display
+- `src/app/properties/properties-client.tsx` - Exclude sold from totals
 
 ---
 
