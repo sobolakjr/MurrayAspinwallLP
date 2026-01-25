@@ -26,31 +26,13 @@ export async function GET(request: NextRequest) {
   const zillowCity = city.toLowerCase().replace(/\s+/g, '-');
   const zillowState = state.toLowerCase();
 
-  // Generate listing URLs for each platform
+  // Generate Zillow listing URL (most reliable for finding exact property)
   const listings = [
     {
       source: 'Zillow',
       url: `https://www.zillow.com/homes/${encodeURIComponent(zillowAddress)}-${encodeURIComponent(zillowCity)}-${zillowState}_rb/`,
       searchUrl: `https://www.zillow.com/homes/${encodeURIComponent(fullAddress).replace(/%20/g, '-')}_rb/`,
       icon: 'zillow',
-    },
-    {
-      source: 'Redfin',
-      url: `https://www.redfin.com/search?search=${encodeURIComponent(fullAddress)}`,
-      searchUrl: `https://www.redfin.com/search?search=${encodeURIComponent(fullAddress)}`,
-      icon: 'redfin',
-    },
-    {
-      source: 'Realtor.com',
-      url: `https://www.realtor.com/realestateandhomes-search/${encodeURIComponent(fullAddress).replace(/%20/g, '_')}`,
-      searchUrl: `https://www.realtor.com/realestateandhomes-search/${encodeURIComponent(fullAddress).replace(/%20/g, '_')}`,
-      icon: 'realtor',
-    },
-    {
-      source: 'Trulia',
-      url: `https://www.trulia.com/home/${encodeURIComponent(fullAddress).replace(/%20/g, '-')}`,
-      searchUrl: `https://www.trulia.com/for_sale/${encodeURIComponent(city)},${state}/`,
-      icon: 'trulia',
     },
   ];
 
