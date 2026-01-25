@@ -31,8 +31,6 @@ import {
   FileText,
   RefreshCw,
   Link2,
-  Plus,
-  X,
   ExternalLink,
   ChevronDown,
   ChevronRight,
@@ -65,12 +63,9 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
   const router = useRouter();
   const [status, setStatus] = useState<ProspectStatus>(prospect.status);
   const [notes, setNotes] = useState(prospect.notes || '');
-  const [listingUrls, setListingUrls] = useState<string[]>(prospect.listing_urls || []);
-  const [newUrl, setNewUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isFetchingPrice, setIsFetchingPrice] = useState<string | null>(null);
 
   // Realtor info state
   const [realtorName, setRealtorName] = useState(prospect.realtor_name || '');
@@ -92,6 +87,41 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
 
   // Collapsible API data section
   const [apiDataExpanded, setApiDataExpanded] = useState(false);
+
+  // Listing links
+  interface ListingLink {
+    source: string;
+    url: string;
+    searchUrl: string;
+    icon: string;
+  }
+  const [listingLinks, setListingLinks] = useState<ListingLink[]>([]);
+  const [isLoadingLinks, setIsLoadingLinks] = useState(false);
+
+  // Fetch listing links on mount
+  React.useEffect(() => {
+    const fetchListingLinks = async () => {
+      setIsLoadingLinks(true);
+      try {
+        const params = new URLSearchParams({
+          address: prospect.address,
+          city: prospect.city,
+          state: prospect.state,
+          zip: prospect.zip || '',
+        });
+        const res = await fetch(`/api/search-listings?${params}`);
+        const data = await res.json();
+        if (data.listings) {
+          setListingLinks(data.listings);
+        }
+      } catch (error) {
+        console.error('Error fetching listing links:', error);
+      } finally {
+        setIsLoadingLinks(false);
+      }
+    };
+    fetchListingLinks();
+  }, [prospect.address, prospect.city, prospect.state, prospect.zip]);
 
   const handleRefreshClick = () => {
     setShowApiConfirm(true);
@@ -136,7 +166,6 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
       const result = await updateProspectAction(prospect.id, {
         status,
         notes,
-        listing_urls: listingUrls.length > 0 ? listingUrls : null,
         realtor_name: realtorName || null,
         realtor_phone: realtorPhone || null,
         realtor_email: realtorEmail || null,
@@ -153,61 +182,10 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
     }
   };
 
-  const handleAddUrl = () => {
-    if (!newUrl.trim()) return;
-    try {
-      new URL(newUrl); // Validate URL
-      if (!listingUrls.includes(newUrl)) {
-        setListingUrls([...listingUrls, newUrl]);
-      }
-      setNewUrl('');
-    } catch {
-      alert('Please enter a valid URL');
-    }
-  };
-
-  const handleRemoveUrl = (urlToRemove: string) => {
-    setListingUrls(listingUrls.filter(url => url !== urlToRemove));
-  };
-
-  const handleFetchPrice = async (url: string) => {
-    setIsFetchingPrice(url);
-    try {
-      const response = await fetch(`/api/fetch-listing?url=${encodeURIComponent(url)}`);
-      const data = await response.json();
-
-      if (data.success && data.listPrice) {
-        setListingPrice(data.listPrice.toString());
-        setListingPriceSource('fetched');
-        alert(`Found list price: $${data.listPrice.toLocaleString()}`);
-      } else {
-        alert(data.error || 'Could not extract price from listing. The site may be blocking automated access.');
-      }
-    } catch (error) {
-      console.error('Error fetching price:', error);
-      alert('Failed to fetch listing price');
-    } finally {
-      setIsFetchingPrice(null);
-    }
-  };
-
   const handleListingPriceChange = (value: string) => {
     setListingPrice(value);
     if (listingPriceSource !== 'fetched') {
       setListingPriceSource('manual');
-    }
-  };
-
-  const getUrlSource = (url: string): string => {
-    try {
-      const hostname = new URL(url).hostname;
-      if (hostname.includes('zillow')) return 'Zillow';
-      if (hostname.includes('redfin')) return 'Redfin';
-      if (hostname.includes('realtor')) return 'Realtor.com';
-      if (hostname.includes('trulia')) return 'Trulia';
-      return hostname.replace('www.', '');
-    } catch {
-      return 'Link';
     }
   };
 
@@ -484,91 +462,37 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
           </CardContent>
         </Card>
 
-        {/* Listing URLs */}
+        {/* View Listings */}
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Link2 className="h-5 w-5" />
-              Listing URLs
+              View Listings
             </CardTitle>
             <CardDescription>
-              Add Zillow, Redfin, or Realtor.com links to fetch current listing price
+              Search for this property on major real estate sites
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Add URL Input */}
-            <div className="flex gap-2">
-              <Input
-                placeholder="Paste listing URL (Zillow, Redfin, Realtor.com)..."
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddUrl()}
-                className="flex-1"
-              />
-              <Button onClick={handleAddUrl} disabled={!newUrl.trim()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add
-              </Button>
-            </div>
-
-            {/* URL List */}
-            {listingUrls.length > 0 ? (
-              <div className="space-y-2">
-                {listingUrls.map((url, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30"
-                  >
-                    <Badge variant="outline" className="shrink-0">
-                      {getUrlSource(url)}
-                    </Badge>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 text-sm text-blue-600 hover:underline truncate"
-                    >
-                      {url}
-                    </a>
-                    <div className="flex gap-1 shrink-0">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleFetchPrice(url)}
-                        disabled={isFetchingPrice === url}
-                      >
-                        {isFetchingPrice === url ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <DollarSign className="h-4 w-4" />
-                        )}
-                        <span className="ml-1 hidden sm:inline">Get Price</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        asChild
-                      >
-                        <a href={url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleRemoveUrl(url)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+          <CardContent>
+            {isLoadingLinks ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No listing URLs added yet
-              </p>
+              <div className="flex flex-wrap gap-3">
+                {listingLinks.map((link) => (
+                  <a
+                    key={link.source}
+                    href={link.searchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border bg-card hover:bg-accent transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="font-medium">View on {link.source}</span>
+                  </a>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
