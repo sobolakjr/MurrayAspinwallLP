@@ -1,13 +1,20 @@
-import { getProperties, getBankAccounts } from '@/lib/database';
+import { getProperties, getBankAccounts, getTransactions } from '@/lib/database';
 import { ImportClient } from './import-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ImportPage() {
-  const [properties, bankAccounts] = await Promise.all([
+  const [properties, bankAccounts, existingTransactions] = await Promise.all([
     getProperties(),
     getBankAccounts(),
+    getTransactions(),
   ]);
 
-  return <ImportClient properties={properties} bankAccounts={bankAccounts} />;
+  return (
+    <ImportClient
+      properties={properties}
+      bankAccounts={bankAccounts}
+      existingTransactions={existingTransactions}
+    />
+  );
 }

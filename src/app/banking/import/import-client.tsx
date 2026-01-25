@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,10 +33,12 @@ import {
   AlertCircle,
   Loader2,
   X,
+  AlertTriangle,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '@/types';
-import type { Property, BankAccount } from '@/types';
+import type { Property, BankAccount, Transaction } from '@/types';
 import { importTransactionsAction } from '../actions';
 
 interface ParsedTransaction {
@@ -46,14 +49,21 @@ interface ParsedTransaction {
   category: string;
   selected: boolean;
   property_id: string;
+  memo: string;
+  isDuplicate: boolean;
 }
 
 interface ImportClientProps {
   properties: Property[];
   bankAccounts: BankAccount[];
+  existingTransactions: Transaction[];
 }
 
-export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
+export function ImportClient({ properties, bankAccounts, existingTransactions }: ImportClientProps) {
+  // Create a Set of existing transaction signatures for fast duplicate lookup
+  const existingSignatures = new Set(
+    existingTransactions.map((tx) => `${tx.date}|${tx.amount}|${tx.type}`)
+  );
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -65,6 +75,8 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
   const [error, setError] = useState<string | null>(null);
   const [checkedRows, setCheckedRows] = useState<Set<number>>(new Set());
   const [bulkPropertyId, setBulkPropertyId] = useState<string>('none');
+  const [bulkCategory, setBulkCategory] = useState<string>('');
+  const [bulkMemo, setBulkMemo] = useState<string>('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -252,14 +264,20 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
           type = 'expense';
         }
 
+        // Check if this is a potential duplicate
+        const signature = `${date}|${amount}|${type}`;
+        const isDuplicate = existingSignatures.has(signature);
+
         parsed.push({
           date,
           description,
           amount,
           type,
           category,
-          selected: true,
+          selected: !isDuplicate, // Auto-deselect duplicates
           property_id: 'none',
+          memo: '',
+          isDuplicate,
         });
       }
     }
@@ -354,14 +372,40 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
     setCheckedRows(new Set());
   };
 
+  const updateMemo = (index: number, memo: string) => {
+    setTransactions((prev) =>
+      prev.map((tx, i) =>
+        i === index ? { ...tx, memo } : tx
+      )
+    );
+  };
+
   const applyPropertyToChecked = (property_id: string) => {
     setTransactions((prev) =>
       prev.map((tx, i) =>
         checkedRows.has(i) ? { ...tx, property_id } : tx
       )
     );
-    setCheckedRows(new Set());
     setBulkPropertyId('none');
+  };
+
+  const applyCategoryToChecked = (category: string) => {
+    if (!category) return;
+    setTransactions((prev) =>
+      prev.map((tx, i) =>
+        checkedRows.has(i) ? { ...tx, category } : tx
+      )
+    );
+    setBulkCategory('');
+  };
+
+  const applyMemoToChecked = (memo: string) => {
+    setTransactions((prev) =>
+      prev.map((tx, i) =>
+        checkedRows.has(i) ? { ...tx, memo } : tx
+      )
+    );
+    setBulkMemo('');
   };
 
   const handleImport = async () => {
@@ -379,7 +423,7 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
           amount: tx.amount,
           type: tx.type,
           category: tx.category,
-          description: tx.description,
+          description: tx.memo ? `${tx.description} | ${tx.memo}` : tx.description,
         })),
         bankAccountId === 'none' ? null : bankAccountId
       );
@@ -397,6 +441,7 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
   };
 
   const selectedCount = transactions.filter((tx) => tx.selected).length;
+  const duplicateCount = transactions.filter((tx) => tx.isDuplicate).length;
 
   return (
     <div className="space-y-6">
@@ -420,23 +465,136 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
         <CardHeader>
           <CardTitle>CSV Import Instructions</CardTitle>
           <CardDescription>
-            Follow these steps to import transactions from PNC or other banks
+            Follow these steps to export and import transactions from your bank
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <ol className="list-decimal list-inside space-y-2 text-sm">
-            <li>Log in to your PNC online banking account</li>
-            <li>Navigate to Account Activity or Statements</li>
-            <li>Select the date range you want to export</li>
-            <li>Download as CSV format</li>
-            <li>Upload the file below</li>
-          </ol>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <AlertCircle className="h-4 w-4" />
-            <span>
-              Supported banks: PNC, Chase, Bank of America, Wells Fargo, and most CSV formats
-            </span>
-          </div>
+        <CardContent>
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="pnc">PNC</TabsTrigger>
+              <TabsTrigger value="chase">Chase</TabsTrigger>
+              <TabsTrigger value="bofa">Bank of America</TabsTrigger>
+              <TabsTrigger value="wells">Wells Fargo</TabsTrigger>
+              <TabsTrigger value="other">Other Banks</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="space-y-4">
+              <div className="space-y-3">
+                <h4 className="font-medium">How It Works</h4>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                  <li>Download a CSV export from your bank&apos;s website</li>
+                  <li>Upload the file using the form below</li>
+                  <li>Review and categorize the transactions</li>
+                  <li>Assign transactions to properties (optional)</li>
+                  <li>Add memos for additional context (optional)</li>
+                  <li>Import the selected transactions</li>
+                </ol>
+              </div>
+              <div className="space-y-3">
+                <h4 className="font-medium">Features</h4>
+                <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                  <li><strong>Auto-categorization:</strong> Common transactions are automatically categorized</li>
+                  <li><strong>Duplicate detection:</strong> Previously imported transactions are flagged and auto-deselected</li>
+                  <li><strong>Bulk editing:</strong> Select multiple rows to apply property, category, or memo at once</li>
+                  <li><strong>Per-transaction editing:</strong> Fine-tune each transaction individually</li>
+                </ul>
+              </div>
+              <div className="flex items-center gap-2 text-sm bg-blue-50 p-3 rounded-lg">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <span className="text-blue-800">
+                  Supported formats: PNC, Chase, Bank of America, Wells Fargo, and most standard CSV formats with Date, Description, and Amount columns.
+                </span>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="pnc" className="space-y-4">
+              <h4 className="font-medium">PNC Bank Export Instructions</h4>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                <li>Log in to <strong>pnc.com</strong></li>
+                <li>Click on your account to view activity</li>
+                <li>Click <strong>&quot;Download&quot;</strong> or <strong>&quot;Export&quot;</strong> button (usually top right)</li>
+                <li>Select date range (up to 18 months)</li>
+                <li>Choose <strong>&quot;CSV&quot;</strong> or <strong>&quot;Spreadsheet (CSV)&quot;</strong> format</li>
+                <li>Click <strong>&quot;Download&quot;</strong></li>
+              </ol>
+              <div className="bg-muted p-3 rounded-lg text-sm">
+                <strong>PNC CSV Format:</strong> Date, Description, Withdrawals, Deposits, Balance
+                <br />
+                <span className="text-muted-foreground">Or: Date, Description, Amount (with +/- prefix)</span>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="chase" className="space-y-4">
+              <h4 className="font-medium">Chase Bank Export Instructions</h4>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                <li>Log in to <strong>chase.com</strong></li>
+                <li>Go to your account and click <strong>&quot;See activity&quot;</strong></li>
+                <li>Click the <strong>download icon</strong> (arrow pointing down)</li>
+                <li>Select <strong>&quot;Transactions&quot;</strong></li>
+                <li>Choose your date range</li>
+                <li>Select <strong>&quot;CSV&quot;</strong> file type</li>
+                <li>Click <strong>&quot;Download&quot;</strong></li>
+              </ol>
+              <div className="bg-muted p-3 rounded-lg text-sm">
+                <strong>Chase CSV Format:</strong> Transaction Date, Post Date, Description, Category, Type, Amount, Memo
+              </div>
+            </TabsContent>
+
+            <TabsContent value="bofa" className="space-y-4">
+              <h4 className="font-medium">Bank of America Export Instructions</h4>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                <li>Log in to <strong>bankofamerica.com</strong></li>
+                <li>Select your account</li>
+                <li>Click <strong>&quot;Download transactions&quot;</strong> link</li>
+                <li>Select the date range</li>
+                <li>Choose <strong>&quot;Microsoft Excel or CSV&quot;</strong></li>
+                <li>Click <strong>&quot;Download&quot;</strong></li>
+              </ol>
+              <div className="bg-muted p-3 rounded-lg text-sm">
+                <strong>BofA CSV Format:</strong> Date, Description, Amount, Running Balance
+              </div>
+            </TabsContent>
+
+            <TabsContent value="wells" className="space-y-4">
+              <h4 className="font-medium">Wells Fargo Export Instructions</h4>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                <li>Log in to <strong>wellsfargo.com</strong></li>
+                <li>Go to <strong>&quot;Account Activity&quot;</strong></li>
+                <li>Click <strong>&quot;Download Account Activity&quot;</strong></li>
+                <li>Select the date range</li>
+                <li>Choose <strong>&quot;Comma Delimited (.csv)&quot;</strong></li>
+                <li>Click <strong>&quot;Download&quot;</strong></li>
+              </ol>
+              <div className="bg-muted p-3 rounded-lg text-sm">
+                <strong>Wells Fargo CSV Format:</strong> Date, Amount, *, *, Description
+              </div>
+            </TabsContent>
+
+            <TabsContent value="other" className="space-y-4">
+              <h4 className="font-medium">Other Banks &amp; Generic CSV</h4>
+              <p className="text-sm text-muted-foreground">
+                Most banks offer CSV export. Look for &quot;Download&quot;, &quot;Export&quot;, or &quot;Download Activity&quot; options in your account.
+              </p>
+              <div className="space-y-3">
+                <h5 className="font-medium text-sm">Required Columns</h5>
+                <p className="text-sm text-muted-foreground">Your CSV should have these columns (names can vary):</p>
+                <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                  <li><strong>Date:</strong> Transaction date (MM/DD/YYYY or YYYY-MM-DD)</li>
+                  <li><strong>Description/Memo/Payee:</strong> Transaction description</li>
+                  <li><strong>Amount:</strong> Single amount column, OR separate Debit/Credit columns</li>
+                </ul>
+              </div>
+              <div className="bg-amber-50 p-3 rounded-lg text-sm">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
+                  <span className="text-amber-800">
+                    If your bank&apos;s format isn&apos;t recognized, try renaming columns to: Date, Description, Amount (or Debit/Credit).
+                  </span>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -546,6 +704,11 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
                 <CardTitle>Review Transactions</CardTitle>
                 <CardDescription>
                   {selectedCount} of {transactions.length} transactions selected for import
+                  {duplicateCount > 0 && (
+                    <span className="ml-2 text-amber-600">
+                      ({duplicateCount} potential duplicate{duplicateCount > 1 ? 's' : ''} auto-deselected)
+                    </span>
+                  )}
                 </CardDescription>
               </div>
               <Button onClick={handleImport} disabled={selectedCount === 0 || isImporting}>
@@ -561,44 +724,107 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
           <CardContent className="space-y-4">
             {/* Bulk Action Bar */}
             {checkedRows.size > 0 && (
-              <div className="flex items-center gap-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <span className="text-sm font-medium text-blue-900">
-                  {checkedRows.size} selected
-                </span>
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm text-blue-700">Assign to:</Label>
-                  <Select
-                    value={bulkPropertyId}
-                    onValueChange={setBulkPropertyId}
-                  >
-                    <SelectTrigger className="w-[180px] bg-white">
-                      <SelectValue placeholder="Select property..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No Property</SelectItem>
-                      {properties.map((property) => (
-                        <SelectItem key={property.id} value={property.id}>
-                          {property.address}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="flex flex-col gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-blue-900">
+                    {checkedRows.size} selected
+                  </span>
                   <Button
+                    variant="ghost"
                     size="sm"
-                    onClick={() => applyPropertyToChecked(bulkPropertyId)}
+                    onClick={clearChecked}
                   >
-                    Apply
+                    <X className="h-4 w-4 mr-1" />
+                    Clear Selection
                   </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearChecked}
-                  className="ml-auto"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Clear
-                </Button>
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Bulk Property */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm text-blue-700 whitespace-nowrap">Property:</Label>
+                    <Select
+                      value={bulkPropertyId}
+                      onValueChange={setBulkPropertyId}
+                    >
+                      <SelectTrigger className="w-[160px] bg-white">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Property</SelectItem>
+                        {properties.map((property) => (
+                          <SelectItem key={property.id} value={property.id}>
+                            {property.address}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => applyPropertyToChecked(bulkPropertyId)}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+
+                  {/* Bulk Category */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm text-blue-700 whitespace-nowrap">Category:</Label>
+                    <Select
+                      value={bulkCategory}
+                      onValueChange={setBulkCategory}
+                    >
+                      <SelectTrigger className="w-[140px] bg-white">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Income</SelectLabel>
+                          {INCOME_CATEGORIES.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Expense</SelectLabel>
+                          {EXPENSE_CATEGORIES.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => applyCategoryToChecked(bulkCategory)}
+                      disabled={!bulkCategory}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+
+                  {/* Bulk Memo */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm text-blue-700 whitespace-nowrap">Memo:</Label>
+                    <Input
+                      value={bulkMemo}
+                      onChange={(e) => setBulkMemo(e.target.value)}
+                      placeholder="Add memo..."
+                      className="w-[160px] bg-white"
+                    />
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => applyMemoToChecked(bulkMemo)}
+                      disabled={!bulkMemo}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -617,12 +843,16 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
                   <TableHead>Property</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Category</TableHead>
+                  <TableHead>Memo</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {transactions.map((tx, index) => (
-                  <TableRow key={index} className={!tx.selected ? 'opacity-50' : ''}>
+                  <TableRow
+                    key={index}
+                    className={`${!tx.selected ? 'opacity-50' : ''} ${tx.isDuplicate ? 'bg-amber-50' : ''}`}
+                  >
                     <TableCell>
                       <Checkbox
                         checked={checkedRows.has(index)}
@@ -638,8 +868,16 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
                       />
                     </TableCell>
                     <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {tx.description}
+                    <TableCell className="max-w-[200px]">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate">{tx.description}</span>
+                        {tx.isDuplicate && (
+                          <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-xs whitespace-nowrap">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            Duplicate
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Select
@@ -700,6 +938,14 @@ export function ImportClient({ properties, bankAccounts }: ImportClientProps) {
                           </SelectGroup>
                         </SelectContent>
                       </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={tx.memo}
+                        onChange={(e) => updateMemo(index, e.target.value)}
+                        placeholder="Add memo..."
+                        className="w-[120px]"
+                      />
                     </TableCell>
                     <TableCell
                       className={`text-right font-medium ${
