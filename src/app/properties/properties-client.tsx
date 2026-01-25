@@ -77,7 +77,7 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
             <CardTitle className="text-sm font-medium">Total Properties</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{properties.length}</div>
+            <div className="text-2xl font-bold">{activeProperties.length}</div>
           </CardContent>
         </Card>
         <Card>
