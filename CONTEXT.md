@@ -651,6 +651,19 @@ ALTER COLUMN status TYPE TEXT;
 - `src/types/index.ts` - Added `UserFeedback` and `UserFeedbackCategory` types
 - `src/app/properties/properties-client.tsx` - Fixed Total Properties count
 
+**Prospect Detail Improvements:**
+- "Complete API Response" section now collapsible (collapsed by default)
+- Click header to expand/collapse with chevron icon indicator
+- Replaced manual listing URL paste with auto-generated Zillow link
+- "View on Zillow" button automatically searches for property by address
+- Removed price scraping functionality (unreliable)
+
+**New Files:**
+- `src/app/api/search-listings/route.ts` - Generates Zillow search URL from address
+
+**Additional Files Changed:**
+- `src/app/prospects/[id]/prospect-detail-client.tsx` - Collapsible API section, Zillow link
+
 ---
 
 ### How to Resume
