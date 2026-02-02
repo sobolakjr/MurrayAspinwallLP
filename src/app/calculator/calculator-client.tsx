@@ -39,6 +39,10 @@ import {
   Palmtree,
   FolderOpen,
   Trash2,
+  RefreshCw,
+  Landmark,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { deleteScenarioAction } from './actions';
 import type { SavedScenario } from '@/lib/database';
@@ -135,6 +139,23 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
   const [isSaving, setIsSaving] = useState(false);
   const [scenarios, setScenarios] = useState<SavedScenario[]>(savedScenarios);
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(initialProspect);
+  const [financingExpanded, setFinancingExpanded] = useState(false);
+
+  // Refinance state
+  const [refinanceEnabled, setRefinanceEnabled] = useState(false);
+  const [refinanceYear, setRefinanceYear] = useState(5);
+  const [refinanceRate, setRefinanceRate] = useState(6.0);
+  const [refinanceTerm, setRefinanceTerm] = useState(30);
+  const [refinanceCashOut, setRefinanceCashOut] = useState(0);
+  const [refinanceClosingCosts, setRefinanceClosingCosts] = useState(3000);
+
+  // HELOC state
+  const [helocEnabled, setHelocEnabled] = useState(false);
+  const [helocYear, setHelocYear] = useState(3);
+  const [helocAmount, setHelocAmount] = useState(50000);
+  const [helocRate, setHelocRate] = useState(8.5);
+  const [helocTerm, setHelocTerm] = useState(10);
+  const [helocDrawPeriod, setHelocDrawPeriod] = useState(5);
 
   // Helper to get display price from prospect
   const getProspectPrice = (p: Prospect): number => {
@@ -1038,6 +1059,187 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
               </div>
             </CardContent>
           </Card>
+
+          {/* Financing Options (Refinance & HELOC) */}
+          <Card>
+            <CardHeader
+              className="cursor-pointer"
+              onClick={() => setFinancingExpanded(!financingExpanded)}
+            >
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Landmark className="h-5 w-5" />
+                  Financing Options
+                </div>
+                {financingExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </CardTitle>
+              {!financingExpanded && (refinanceEnabled || helocEnabled) && (
+                <CardDescription>
+                  {refinanceEnabled && `Refinance Year ${refinanceYear}`}
+                  {refinanceEnabled && helocEnabled && ' • '}
+                  {helocEnabled && `HELOC Year ${helocYear}`}
+                </CardDescription>
+              )}
+            </CardHeader>
+            {financingExpanded && (
+              <CardContent className="space-y-6">
+                {/* Refinance Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className="h-4 w-4" />
+                      <Label className="text-base font-medium">Refinance</Label>
+                    </div>
+                    <Button
+                      variant={refinanceEnabled ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setRefinanceEnabled(!refinanceEnabled)}
+                    >
+                      {refinanceEnabled ? 'Enabled' : 'Disabled'}
+                    </Button>
+                  </div>
+                  {refinanceEnabled && (
+                    <div className="space-y-4 pl-6 border-l-2 border-primary/20">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Refinance in Year</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={refinanceYear}
+                            onChange={(e) => setRefinanceYear(Number(e.target.value))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>New Interest Rate %</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={refinanceRate}
+                            onChange={(e) => setRefinanceRate(Number(e.target.value))}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>New Loan Term (years)</Label>
+                          <Input
+                            type="number"
+                            value={refinanceTerm}
+                            onChange={(e) => setRefinanceTerm(Number(e.target.value))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Cash Out Amount</Label>
+                          <div className="relative">
+                            <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              type="number"
+                              value={refinanceCashOut}
+                              onChange={(e) => setRefinanceCashOut(Number(e.target.value))}
+                              className="pl-8"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Closing Costs</Label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="number"
+                            value={refinanceClosingCosts}
+                            onChange={(e) => setRefinanceClosingCosts(Number(e.target.value))}
+                            className="pl-8"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* HELOC Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Landmark className="h-4 w-4" />
+                      <Label className="text-base font-medium">Home Equity Loan / HELOC</Label>
+                    </div>
+                    <Button
+                      variant={helocEnabled ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setHelocEnabled(!helocEnabled)}
+                    >
+                      {helocEnabled ? 'Enabled' : 'Disabled'}
+                    </Button>
+                  </div>
+                  {helocEnabled && (
+                    <div className="space-y-4 pl-6 border-l-2 border-primary/20">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Take HELOC in Year</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={helocYear}
+                            onChange={(e) => setHelocYear(Number(e.target.value))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>HELOC Amount</Label>
+                          <div className="relative">
+                            <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              type="number"
+                              value={helocAmount}
+                              onChange={(e) => setHelocAmount(Number(e.target.value))}
+                              className="pl-8"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Interest Rate %</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={helocRate}
+                            onChange={(e) => setHelocRate(Number(e.target.value))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Repayment Term (years)</Label>
+                          <Input
+                            type="number"
+                            value={helocTerm}
+                            onChange={(e) => setHelocTerm(Number(e.target.value))}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Draw Period (years)</Label>
+                        <Input
+                          type="number"
+                          value={helocDrawPeriod}
+                          onChange={(e) => setHelocDrawPeriod(Number(e.target.value))}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Interest-only payments during draw period
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            )}
+          </Card>
         </div>
 
         {/* Results */}
@@ -1100,6 +1302,90 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
               </CardContent>
             </Card>
           </div>
+
+          {/* Financing Scenarios Impact */}
+          {(refinanceEnabled || helocEnabled) && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Landmark className="h-4 w-4" />
+                  Financing Scenario Impact
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 text-sm">
+                  {refinanceEnabled && (() => {
+                    const purchasePrice = rentalType === 'ltr' ? ltrScenario.purchase_price : strScenario.purchase_price;
+                    const appreciationRate = rentalType === 'ltr' ? ltrScenario.appreciation_rate : strScenario.appreciation_rate;
+                    const futureValue = purchasePrice * Math.pow(1 + appreciationRate / 100, refinanceYear);
+                    const currentLoanBalance = results.loanAmount * (1 - refinanceYear / (rentalType === 'ltr' ? ltrScenario.loan_term : strScenario.loan_term) * 0.3); // Simplified
+                    const maxLTV = futureValue * 0.75;
+                    const newLoanAmount = Math.min(maxLTV, currentLoanBalance + refinanceCashOut);
+                    const monthlyPayment = (newLoanAmount * (refinanceRate / 100 / 12)) / (1 - Math.pow(1 + refinanceRate / 100 / 12, -refinanceTerm * 12));
+
+                    return (
+                      <div className="p-3 bg-white rounded-lg">
+                        <div className="flex items-center gap-2 font-medium mb-2">
+                          <RefreshCw className="h-4 w-4" />
+                          Refinance in Year {refinanceYear}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Est. Property Value:</span>
+                            <span>{formatCurrency(futureValue)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Max Loan (75% LTV):</span>
+                            <span>{formatCurrency(maxLTV)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Cash Out:</span>
+                            <span className="text-green-600">{formatCurrency(refinanceCashOut)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">New Payment:</span>
+                            <span>{formatCurrency(monthlyPayment)}/mo</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {helocEnabled && (() => {
+                    const monthlyInterest = (helocAmount * (helocRate / 100)) / 12;
+                    const fullPayment = (helocAmount * (helocRate / 100 / 12)) / (1 - Math.pow(1 + helocRate / 100 / 12, -helocTerm * 12));
+
+                    return (
+                      <div className="p-3 bg-white rounded-lg">
+                        <div className="flex items-center gap-2 font-medium mb-2">
+                          <Landmark className="h-4 w-4" />
+                          HELOC in Year {helocYear}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">HELOC Amount:</span>
+                            <span className="text-green-600">{formatCurrency(helocAmount)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Interest Rate:</span>
+                            <span>{helocRate}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Draw Period Payment:</span>
+                            <span>{formatCurrency(monthlyInterest)}/mo</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Repayment Period:</span>
+                            <span>{formatCurrency(fullPayment)}/mo</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* STR-specific metrics */}
           {rentalType === 'str' && (
