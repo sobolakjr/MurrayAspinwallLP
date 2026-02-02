@@ -9,16 +9,25 @@ import {
   ArrowRight,
   Home,
   AlertCircle,
+  Wallet,
 } from 'lucide-react';
 import Link from 'next/link';
-import { getDashboardStats, getRecentProspects, getUpcomingTasks } from '@/lib/database';
+import { getDashboardStats, getRecentProspects, getUpcomingTasks, getBankAccounts } from '@/lib/database';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-  const stats = await getDashboardStats();
-  const recentProspects = await getRecentProspects(5);
-  const upcomingTasks = await getUpcomingTasks();
+  const [stats, recentProspects, upcomingTasks, bankAccounts] = await Promise.all([
+    getDashboardStats(),
+    getRecentProspects(5),
+    getUpcomingTasks(),
+    getBankAccounts(),
+  ]);
+
+  const totalCashBalance = bankAccounts.reduce(
+    (sum, account) => sum + (account.current_balance || 0),
+    0
+  );
 
   const cashOnCash = stats.totalEquity > 0
     ? ((stats.monthlyCashFlow * 12) / stats.totalEquity * 100).toFixed(1)
@@ -35,7 +44,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Portfolio Value</CardTitle>
@@ -62,6 +71,21 @@ export default async function DashboardPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               Across all properties
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Cash Balance</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              ${totalCashBalance.toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {bankAccounts.length} {bankAccounts.length === 1 ? 'account' : 'accounts'}
             </p>
           </CardContent>
         </Card>
