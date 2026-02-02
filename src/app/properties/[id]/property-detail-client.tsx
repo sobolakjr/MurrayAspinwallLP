@@ -55,6 +55,9 @@ import {
   createPropertyCodeAction,
   updatePropertyCodeAction,
   deletePropertyCodeAction,
+  createTenantAction,
+  updateTenantAction,
+  deleteTenantAction,
 } from '../actions';
 
 interface PropertyDetailClientProps {
@@ -90,8 +93,9 @@ export function PropertyDetailClient({
   const equity = (Number(property.current_value) || 0) - (Number(property.mortgage_balance) || 0);
 
   // Calculate expected monthly rent income from active tenants
-  const activeTenants = tenants.filter((t) => t.status === 'active');
-  const tenantRentIncome = activeTenants.reduce((sum, t) => sum + (Number(t.rent_amount) || 0), 0);
+  // Note: activeTenants recalculated in render using tenantsList for real-time updates
+  const initialActiveTenants = tenants.filter((t) => t.status === 'active');
+  const tenantRentIncome = initialActiveTenants.reduce((sum, t) => sum + (Number(t.rent_amount) || 0), 0);
 
   // Fall back to property monthly_rent if no active tenants with rent
   const monthlyRentIncome = tenantRentIncome > 0
@@ -131,6 +135,110 @@ export function PropertyDetailClient({
     notes: '',
   });
   const [codeSaving, setCodeSaving] = useState(false);
+
+  // Tenants state
+  const [tenantsList, setTenantsList] = useState<Tenant[]>(tenants);
+  const [tenantDialogOpen, setTenantDialogOpen] = useState(false);
+  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [tenantForm, setTenantForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    lease_start: '',
+    lease_end: '',
+    rent_amount: '',
+    security_deposit: '',
+    status: 'active' as Tenant['status'],
+    notes: '',
+  });
+  const [tenantSaving, setTenantSaving] = useState(false);
+
+  // Tenant handlers
+  const openTenantDialog = (tenant?: Tenant) => {
+    if (tenant) {
+      setEditingTenant(tenant);
+      setTenantForm({
+        name: tenant.name,
+        email: tenant.email || '',
+        phone: tenant.phone || '',
+        lease_start: tenant.lease_start || '',
+        lease_end: tenant.lease_end || '',
+        rent_amount: tenant.rent_amount?.toString() || '',
+        security_deposit: tenant.security_deposit?.toString() || '',
+        status: tenant.status,
+        notes: tenant.notes || '',
+      });
+    } else {
+      setEditingTenant(null);
+      setTenantForm({
+        name: '',
+        email: '',
+        phone: '',
+        lease_start: '',
+        lease_end: '',
+        rent_amount: '',
+        security_deposit: '',
+        status: 'active',
+        notes: '',
+      });
+    }
+    setTenantDialogOpen(true);
+  };
+
+  const handleSaveTenant = async () => {
+    setTenantSaving(true);
+    try {
+      if (editingTenant) {
+        const result = await updateTenantAction(editingTenant.id, {
+          name: tenantForm.name,
+          email: tenantForm.email || undefined,
+          phone: tenantForm.phone || undefined,
+          lease_start: tenantForm.lease_start || undefined,
+          lease_end: tenantForm.lease_end || undefined,
+          rent_amount: tenantForm.rent_amount ? parseFloat(tenantForm.rent_amount) : undefined,
+          security_deposit: tenantForm.security_deposit ? parseFloat(tenantForm.security_deposit) : undefined,
+          status: tenantForm.status,
+          notes: tenantForm.notes || undefined,
+        });
+        if (result.success && result.tenant) {
+          setTenantsList(tenantsList.map((t) => (t.id === editingTenant.id ? result.tenant! : t)));
+        }
+      } else {
+        const result = await createTenantAction({
+          property_id: property.id,
+          name: tenantForm.name,
+          email: tenantForm.email || undefined,
+          phone: tenantForm.phone || undefined,
+          lease_start: tenantForm.lease_start || undefined,
+          lease_end: tenantForm.lease_end || undefined,
+          rent_amount: tenantForm.rent_amount ? parseFloat(tenantForm.rent_amount) : undefined,
+          security_deposit: tenantForm.security_deposit ? parseFloat(tenantForm.security_deposit) : undefined,
+          status: tenantForm.status,
+          notes: tenantForm.notes || undefined,
+        });
+        if (result.success && result.tenant) {
+          setTenantsList([result.tenant, ...tenantsList]);
+        }
+      }
+      setTenantDialogOpen(false);
+    } catch (error) {
+      console.error('Error saving tenant:', error);
+    } finally {
+      setTenantSaving(false);
+    }
+  };
+
+  const handleDeleteTenant = async (tenant: Tenant) => {
+    if (!confirm(`Delete tenant "${tenant.name}"?`)) return;
+    try {
+      const result = await deleteTenantAction(tenant.id, property.id);
+      if (result.success) {
+        setTenantsList(tenantsList.filter((t) => t.id !== tenant.id));
+      }
+    } catch (error) {
+      console.error('Error deleting tenant:', error);
+    }
+  };
 
   // Neighbor handlers
   const openNeighborDialog = (neighbor?: Neighbor) => {
@@ -385,7 +493,7 @@ export function PropertyDetailClient({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {tenants.filter((t) => t.status === 'active').length}
+                {tenantsList.filter((t) => t.status === 'active').length}
               </div>
               <p className="text-xs text-muted-foreground">
                 ${tenants.reduce((sum, t) => sum + (Number(t.rent_amount) || 0), 0).toLocaleString()}/mo rent
@@ -544,13 +652,13 @@ export function PropertyDetailClient({
                 <CardTitle>Tenants</CardTitle>
                 <CardDescription>Current and past tenants</CardDescription>
               </div>
-              <Button size="sm">
+              <Button size="sm" onClick={() => openTenantDialog()}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Tenant
               </Button>
             </CardHeader>
             <CardContent>
-              {tenants.length > 0 ? (
+              {tenantsList.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -559,10 +667,11 @@ export function PropertyDetailClient({
                       <TableHead>Lease Period</TableHead>
                       <TableHead className="text-right">Rent</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="w-[80px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tenants.map((tenant) => (
+                    {tenantsList.map((tenant) => (
                       <TableRow key={tenant.id}>
                         <TableCell className="font-medium">{tenant.name}</TableCell>
                         <TableCell>
@@ -583,6 +692,24 @@ export function PropertyDetailClient({
                           <Badge variant={tenant.status === 'active' ? 'default' : 'secondary'}>
                             {tenant.status}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openTenantDialog(tenant)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteTenant(tenant)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1080,6 +1207,136 @@ export function PropertyDetailClient({
             </Button>
             <Button onClick={handleSaveCode} disabled={codeSaving || !codeForm.name}>
               {codeSaving ? 'Saving...' : editingCode ? 'Update' : 'Add'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tenant Dialog */}
+      <Dialog open={tenantDialogOpen} onOpenChange={setTenantDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingTenant ? 'Edit Tenant' : 'Add Tenant'}</DialogTitle>
+            <DialogDescription>
+              {editingTenant
+                ? 'Update tenant information'
+                : 'Add a new tenant for this property'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="tenant-name">Name *</Label>
+              <Input
+                id="tenant-name"
+                value={tenantForm.name}
+                onChange={(e) => setTenantForm({ ...tenantForm, name: e.target.value })}
+                placeholder="John Smith"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="tenant-email">Email</Label>
+                <Input
+                  id="tenant-email"
+                  type="email"
+                  value={tenantForm.email}
+                  onChange={(e) => setTenantForm({ ...tenantForm, email: e.target.value })}
+                  placeholder="john@example.com"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tenant-phone">Phone</Label>
+                <Input
+                  id="tenant-phone"
+                  value={tenantForm.phone}
+                  onChange={(e) => setTenantForm({ ...tenantForm, phone: e.target.value })}
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="tenant-lease-start">Lease Start</Label>
+                <Input
+                  id="tenant-lease-start"
+                  type="date"
+                  value={tenantForm.lease_start}
+                  onChange={(e) => setTenantForm({ ...tenantForm, lease_start: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tenant-lease-end">Lease End</Label>
+                <Input
+                  id="tenant-lease-end"
+                  type="date"
+                  value={tenantForm.lease_end}
+                  onChange={(e) => setTenantForm({ ...tenantForm, lease_end: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="tenant-rent">Monthly Rent</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="tenant-rent"
+                    type="number"
+                    value={tenantForm.rent_amount}
+                    onChange={(e) => setTenantForm({ ...tenantForm, rent_amount: e.target.value })}
+                    placeholder="1500"
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="tenant-deposit">Security Deposit</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="tenant-deposit"
+                    type="number"
+                    value={tenantForm.security_deposit}
+                    onChange={(e) => setTenantForm({ ...tenantForm, security_deposit: e.target.value })}
+                    placeholder="1500"
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="tenant-status">Status</Label>
+              <Select
+                value={tenantForm.status}
+                onValueChange={(value) => setTenantForm({ ...tenantForm, status: value as Tenant['status'] })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="past">Past</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="tenant-notes">Notes</Label>
+              <Textarea
+                id="tenant-notes"
+                value={tenantForm.notes}
+                onChange={(e) => setTenantForm({ ...tenantForm, notes: e.target.value })}
+                placeholder="Additional notes about this tenant"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTenantDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveTenant} disabled={tenantSaving || !tenantForm.name}>
+              {tenantSaving ? 'Saving...' : editingTenant ? 'Update' : 'Add'}
             </Button>
           </DialogFooter>
         </DialogContent>

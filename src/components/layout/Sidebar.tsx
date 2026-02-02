@@ -48,7 +48,11 @@ const navigation: NavItem[] = [
   },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>(['Resources']);
@@ -130,6 +134,7 @@ export function Sidebar() {
                         <Link
                           key={child.name}
                           href={child.href}
+                          onClick={onNavigate}
                           className={cn(
                             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                             isChildActive
@@ -151,6 +156,7 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={hasChildren ? item.children![0].href : item.href}
+              onClick={onNavigate}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 isActive
@@ -171,6 +177,7 @@ export function Sidebar() {
       <div className="border-t p-2 space-y-1">
         <Link
           href="/instructions"
+          onClick={onNavigate}
           className={cn(
             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
             pathname === '/instructions' && 'bg-primary text-primary-foreground',
@@ -183,6 +190,7 @@ export function Sidebar() {
         </Link>
         <Link
           href="/feedback"
+          onClick={onNavigate}
           className={cn(
             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
             pathname === '/feedback' && 'bg-primary text-primary-foreground',
@@ -195,6 +203,7 @@ export function Sidebar() {
         </Link>
         <Link
           href="/settings"
+          onClick={onNavigate}
           className={cn(
             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
             pathname === '/settings' && 'bg-primary text-primary-foreground',

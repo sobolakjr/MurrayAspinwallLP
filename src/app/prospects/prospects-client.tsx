@@ -181,11 +181,11 @@ export function ProspectsClient({ initialProspects }: ProspectsClientProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Property</TableHead>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Beds/Baths</TableHead>
+                  <TableHead className="hidden lg:table-cell">ID</TableHead>
+                  <TableHead className="hidden md:table-cell">Type</TableHead>
+                  <TableHead className="hidden sm:table-cell">Beds/Baths</TableHead>
                   <TableHead className="text-right">List Price</TableHead>
-                  <TableHead>DOM</TableHead>
+                  <TableHead className="hidden md:table-cell">DOM</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
@@ -207,19 +207,19 @@ export function ProspectsClient({ initialProspects }: ProspectsClientProps) {
                         </div>
                       </Link>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
+                    <TableCell className="hidden lg:table-cell font-mono text-sm">
                       {prospect.mls_number}
                     </TableCell>
-                    <TableCell className="capitalize">
+                    <TableCell className="hidden md:table-cell capitalize">
                       {prospect.property_type?.replace('_', ' ')}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {prospect.bedrooms}bd / {prospect.bathrooms}ba
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       ${getDisplayPrice(prospect).toLocaleString()}
                     </TableCell>
-                    <TableCell>{prospect.days_on_market}</TableCell>
+                    <TableCell className="hidden md:table-cell">{prospect.days_on_market}</TableCell>
                     <TableCell>
                       <Badge variant={statusColors[prospect.status]}>
                         {statusLabels[prospect.status]}

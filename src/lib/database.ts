@@ -213,6 +213,42 @@ export async function createTenant(tenant: Omit<Tenant, 'id' | 'created_at' | 'u
   return data as Tenant;
 }
 
+export async function updateTenant(id: string, updates: Partial<Tenant>) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { data, error } = await supabase
+    .from('tenants')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating tenant:', error);
+    throw new Error(error.message);
+  }
+  return data as Tenant;
+}
+
+export async function deleteTenant(id: string) {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
+
+  const { error } = await supabase
+    .from('tenants')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting tenant:', error);
+    throw new Error(error.message);
+  }
+  return true;
+}
+
 // ============ TRANSACTIONS ============
 
 export async function getTransactions(propertyId?: string) {

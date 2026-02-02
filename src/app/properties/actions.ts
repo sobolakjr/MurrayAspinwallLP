@@ -10,9 +10,12 @@ import {
   createPropertyCode,
   updatePropertyCode,
   deletePropertyCode,
+  createTenant,
+  updateTenant,
+  deleteTenant,
 } from '@/lib/database';
 import { revalidatePath } from 'next/cache';
-import type { Property, Neighbor, PropertyCode } from '@/types';
+import type { Property, Neighbor, PropertyCode, Tenant } from '@/types';
 
 interface PropertyInput {
   address: string;
@@ -267,5 +270,90 @@ export async function deletePropertyCodeAction(id: string): Promise<{ success: b
   } catch (error) {
     console.error('Error deleting property code:', error);
     return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+// ============ TENANTS ============
+
+interface TenantInput {
+  property_id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  lease_start?: string;
+  lease_end?: string;
+  rent_amount?: number;
+  security_deposit?: number;
+  status?: Tenant['status'];
+  notes?: string;
+}
+
+export async function createTenantAction(
+  input: TenantInput
+): Promise<{ success: boolean; tenant?: Tenant; error?: string }> {
+  try {
+    const tenant = await createTenant({
+      property_id: input.property_id,
+      name: input.name,
+      email: input.email || null,
+      phone: input.phone || null,
+      lease_start: input.lease_start || null,
+      lease_end: input.lease_end || null,
+      rent_amount: input.rent_amount || null,
+      security_deposit: input.security_deposit || null,
+      status: input.status || 'active',
+      notes: input.notes || null,
+    });
+
+    if (!tenant) {
+      return { success: false, error: 'Failed to create tenant' };
+    }
+
+    revalidatePath(`/properties/${input.property_id}`);
+
+    return { success: true, tenant };
+  } catch (error) {
+    console.error('Error creating tenant:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function updateTenantAction(
+  id: string,
+  updates: Partial<TenantInput>
+): Promise<{ success: boolean; tenant?: Tenant; error?: string }> {
+  try {
+    const tenant = await updateTenant(id, updates as Partial<Tenant>);
+
+    if (!tenant) {
+      return { success: false, error: 'Failed to update tenant' };
+    }
+
+    if (tenant.property_id) {
+      revalidatePath(`/properties/${tenant.property_id}`);
+    }
+
+    return { success: true, tenant };
+  } catch (error) {
+    console.error('Error updating tenant:', error);
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+    return { success: false, error: message };
+  }
+}
+
+export async function deleteTenantAction(
+  id: string,
+  propertyId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await deleteTenant(id);
+
+    revalidatePath(`/properties/${propertyId}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting tenant:', error);
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+    return { success: false, error: message };
   }
 }

@@ -591,11 +591,11 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Payee</TableHead>
+                  <TableHead className="hidden md:table-cell">Description</TableHead>
+                  <TableHead className="hidden lg:table-cell">Payee</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Account</TableHead>
-                  <TableHead>Property</TableHead>
+                  <TableHead className="hidden lg:table-cell">Account</TableHead>
+                  <TableHead className="hidden sm:table-cell">Property</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
@@ -604,23 +604,23 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
                 {transactions.map((tx) => (
                   <TableRow key={tx.id}>
                     <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <p className="font-medium">{tx.description}</p>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       <span className="text-sm">{tx.vendor || '-'}</span>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{tx.category}</Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {tx.bank_account_id ? (
                         <span className="text-sm">{accountMap.get(tx.bank_account_id) || '-'}</span>
                       ) : (
                         <span className="text-sm text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {tx.property_id ? (
                         <Link
                           href={`/properties/${tx.property_id}`}

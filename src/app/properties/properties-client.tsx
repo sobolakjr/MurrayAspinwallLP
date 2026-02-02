@@ -137,10 +137,10 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Address</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Beds/Baths</TableHead>
+                  <TableHead className="hidden md:table-cell">Type</TableHead>
+                  <TableHead className="hidden sm:table-cell">Beds/Baths</TableHead>
                   <TableHead className="text-right">Value</TableHead>
-                  <TableHead className="text-right">Equity</TableHead>
+                  <TableHead className="hidden sm:table-cell text-right">Equity</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
@@ -162,10 +162,10 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
                         </div>
                       </Link>
                     </TableCell>
-                    <TableCell className="capitalize">
+                    <TableCell className="hidden md:table-cell capitalize">
                       {property.property_type?.replace('_', ' ')}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {property.bedrooms}bd / {property.bathrooms}ba
                     </TableCell>
                     <TableCell className="text-right">
@@ -174,7 +174,7 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
                         : `$${(Number(property.current_value) || 0).toLocaleString()}`
                       }
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="hidden sm:table-cell text-right">
                       {property.status === 'sold'
                         ? '-'
                         : `$${((Number(property.current_value) || 0) - (Number(property.mortgage_balance) || 0)).toLocaleString()}`

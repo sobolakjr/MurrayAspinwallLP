@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Plus, LogOut, User, Settings } from 'lucide-react';
+import { Bell, Plus, LogOut, User, Settings, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -13,7 +13,11 @@ import {
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/auth-provider';
 
-export function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const { user, signOut } = useAuth();
 
   // Get initials from email
@@ -27,18 +31,26 @@ export function Header() {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-card px-6">
+    <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:px-6">
       <div className="flex items-center gap-4">
-        {/* Breadcrumb or page title can go here */}
+        {/* Mobile menu button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          onClick={onMenuClick}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 md:gap-2">
         {/* Quick Add */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="sm" className="gap-2">
               <Plus className="h-4 w-4" />
-              Quick Add
+              <span className="hidden sm:inline">Quick Add</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
