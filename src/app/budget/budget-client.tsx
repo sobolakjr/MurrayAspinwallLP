@@ -40,6 +40,10 @@ import {
   ChevronRight,
   Building2,
   Loader2,
+  Pencil,
+  Trash2,
+  Check,
+  X,
 } from 'lucide-react';
 import type { Property, Transaction } from '@/types';
 import { BUDGET_CATEGORIES, EXPENSE_CATEGORIES } from '@/types';
@@ -78,6 +82,8 @@ export function BudgetClient({ properties, transactions }: BudgetClientProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newBudgetCategory, setNewBudgetCategory] = useState('');
   const [newBudgetAmount, setNewBudgetAmount] = useState('');
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState('');
 
   // Filter transactions by year and property
   const filteredTransactions = useMemo(() => {
@@ -174,6 +180,52 @@ export function BudgetClient({ properties, transactions }: BudgetClientProps) {
     setNewBudgetCategory('');
     setNewBudgetAmount('');
     setIsAddDialogOpen(false);
+  };
+
+  const handleStartEdit = (category: string, currentAmount: number) => {
+    setEditingCategory(category);
+    setEditAmount(currentAmount.toString());
+  };
+
+  const handleSaveEdit = (category: string) => {
+    const amount = parseFloat(editAmount);
+    if (isNaN(amount) || amount < 0) {
+      setEditingCategory(null);
+      return;
+    }
+
+    const existingIdx = budgetItems.findIndex(b => b.category === category);
+    if (existingIdx >= 0) {
+      const updated = [...budgetItems];
+      updated[existingIdx] = {
+        ...updated[existingIdx],
+        annual: amount,
+        monthly: Array(12).fill(amount / 12),
+      };
+      setBudgetItems(updated);
+    } else {
+      // Create new budget item for this category
+      setBudgetItems([
+        ...budgetItems,
+        {
+          category,
+          annual: amount,
+          monthly: Array(12).fill(amount / 12),
+        },
+      ]);
+    }
+
+    setEditingCategory(null);
+    setEditAmount('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCategory(null);
+    setEditAmount('');
+  };
+
+  const handleDeleteBudget = (category: string) => {
+    setBudgetItems(budgetItems.filter(b => b.category !== category));
   };
 
   const chartData = comparisonData.slice(0, 10).map(item => ({
@@ -345,11 +397,12 @@ export function BudgetClient({ properties, transactions }: BudgetClientProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[250px]">Category</TableHead>
+                <TableHead className="w-[200px]">Category</TableHead>
                 <TableHead className="text-right">Budget</TableHead>
                 <TableHead className="text-right">Actual</TableHead>
                 <TableHead className="text-right">Variance</TableHead>
                 <TableHead className="text-right">% of Budget</TableHead>
+                <TableHead className="w-[100px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -357,11 +410,13 @@ export function BudgetClient({ properties, transactions }: BudgetClientProps) {
                 <>
                   <TableRow
                     key={item.category}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => toggleCategory(item.category)}
+                    className="hover:bg-muted/50"
                   >
                     <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
+                      <div
+                        className="flex items-center gap-2 cursor-pointer"
+                        onClick={() => toggleCategory(item.category)}
+                      >
                         {expandedCategories.has(item.category) ? (
                           <ChevronDown className="h-4 w-4" />
                         ) : (
@@ -370,7 +425,26 @@ export function BudgetClient({ properties, transactions }: BudgetClientProps) {
                         {item.category}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">{formatCurrency(item.budget)}</TableCell>
+                    <TableCell className="text-right">
+                      {editingCategory === item.category ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            value={editAmount}
+                            onChange={(e) => setEditAmount(e.target.value)}
+                            className="w-24 h-8 text-right"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveEdit(item.category);
+                              if (e.key === 'Escape') handleCancelEdit();
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        formatCurrency(item.budget)
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">{formatCurrency(item.actual)}</TableCell>
                     <TableCell className={`text-right ${item.variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {item.variance >= 0 ? '' : '-'}{formatCurrency(Math.abs(item.variance))}
@@ -384,10 +458,53 @@ export function BudgetClient({ properties, transactions }: BudgetClientProps) {
                         '-'
                       )}
                     </TableCell>
+                    <TableCell className="text-right">
+                      {editingCategory === item.category ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleSaveEdit(item.category)}
+                          >
+                            <Check className="h-4 w-4 text-green-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={handleCancelEdit}
+                          >
+                            <X className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleStartEdit(item.category, item.budget)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          {item.budget > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteBudget(item.category)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
                   </TableRow>
                   {expandedCategories.has(item.category) && (
                     <TableRow key={`${item.category}-details`}>
-                      <TableCell colSpan={5} className="bg-muted/30 p-4">
+                      <TableCell colSpan={6} className="bg-muted/30 p-4">
                         <div className="grid grid-cols-12 gap-2 text-xs">
                           {months.map((month, idx) => (
                             <div key={month} className="text-center">
@@ -420,6 +537,7 @@ export function BudgetClient({ properties, transactions }: BudgetClientProps) {
                     </Badge>
                   )}
                 </TableCell>
+                <TableCell></TableCell>
               </TableRow>
             </TableBody>
           </Table>

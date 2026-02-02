@@ -246,6 +246,7 @@ export const EXPENSE_CATEGORIES = [
   'Mortgage',
   'Insurance',
   'Property Tax',
+  'County Taxes',
   'HOA',
   'Utilities',
   'Repairs',
