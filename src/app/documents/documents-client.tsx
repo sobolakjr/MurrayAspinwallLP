@@ -77,6 +77,7 @@ const documentTypeLabels: Record<string, string> = {
   tax: 'Tax Document',
   deed: 'Deed',
   contract: 'Contract',
+  research: 'Research',
   other: 'Other',
 };
 
@@ -214,6 +215,7 @@ export function DocumentsClient({ properties, prospects, initialDocuments }: Doc
                       <SelectItem value="tax">Tax Document</SelectItem>
                       <SelectItem value="deed">Deed</SelectItem>
                       <SelectItem value="contract">Contract</SelectItem>
+                      <SelectItem value="research">Research</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
@@ -334,6 +336,7 @@ export function DocumentsClient({ properties, prospects, initialDocuments }: Doc
                   <SelectItem value="tax">Tax Documents</SelectItem>
                   <SelectItem value="deed">Deeds</SelectItem>
                   <SelectItem value="contract">Contracts</SelectItem>
+                  <SelectItem value="research">Research</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
