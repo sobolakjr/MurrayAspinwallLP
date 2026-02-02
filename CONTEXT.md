@@ -32,6 +32,7 @@ Rental property investment management application for researching, analyzing, an
   - Total properties count
   - Portfolio value
   - Total equity
+  - **Cash Balance** (sum of all bank accounts)
   - Monthly cash flow
   - Active prospects count
 - Recent prospects summary
@@ -40,6 +41,10 @@ Rental property investment management application for researching, analyzing, an
 
 ### Properties (`/properties`)
 - List of owned rental properties
+- **Active vs Sold Properties:**
+  - Active properties shown in main table
+  - Sold properties in collapsible section (click to expand)
+  - Sold section shows total sale value
 - Property status types:
   - **Rented** - Currently occupied
   - **Listed (Rent)** - Listed for rent
@@ -84,6 +89,15 @@ Rental property investment management application for researching, analyzing, an
   - Property management %, listing service % (Airbnb/VRBO fees)
   - Cleaning cost per turnover, turnovers per year
   - Capital reserve %
+- **Financing Options (Refinance & HELOC):**
+  - Refinance modeling: year, new rate, new term, cash out amount, closing costs
+  - HELOC modeling: year, amount, rate, repayment term, draw period
+  - Estimated property value at refinance/HELOC year
+  - Monthly payment projections for both scenarios
+- **Input Formatting:**
+  - Dollar fields show $ icon prefix (closing costs, rehab, insurance, taxes, HOA, etc.)
+  - HOA entered as annual amount (shows monthly in helper text)
+  - No leading zeros on empty numeric fields
 - **Calculated Outputs:**
   - Monthly/annual cash flow
   - Cap Rate
@@ -116,11 +130,26 @@ Rental property investment management application for researching, analyzing, an
   - **Per-transaction property assignment** - Assign each transaction to a different property
   - **Bulk selection** - Check multiple transactions and assign to a property at once
 
+### Reports (`/reports`)
+- **Income Statement (P&L):**
+  - Filter by property and date range
+  - Revenue, expenses, and net income summary
+  - Monthly breakdown table
+- **Tax Summary (Schedule E):**
+  - IRS Schedule E format for rental properties
+  - Rental income and deductible expenses
+  - Export-ready format
+- **Property Comparison:**
+  - Side-by-side metrics for all properties
+  - Cash flow, equity, value comparison
+  - Bar chart visualization
+
 ### Resources (`/resources`)
 - **Documents** (`/resources/documents`):
   - Document management for properties
+  - **File Upload** via Supabase Storage (drag-and-drop or file picker)
   - Link documents from Google Drive, Dropbox, or any URL
-  - Document types: Lease, Inspection, Insurance, Tax, Deed, Contract, Other
+  - Document types: Lease, Inspection, Insurance, Tax, Deed, Contract, **Research**, Other
 - **Service Providers** (`/resources/providers`):
   - Track trusted contractors and vendors
   - Provider types: Plumbing, Electrical, HVAC, Landscaping, Cleaning, Roofing, General Contractor, Pest Control, Appliance Repair, Locksmith, Attorney, Accountant, Insurance
@@ -133,6 +162,8 @@ Rental property investment management application for researching, analyzing, an
 - Budget vs Actual comparison by category
 - Filter by year and property
 - Set annual budget amounts by expense category
+- **Editable budget items** (inline edit with save/cancel)
+- **Delete budget items**
 - View actual spending from transactions
 - Variance analysis (over/under budget)
 - Monthly breakdown with expandable categories
@@ -140,7 +171,10 @@ Rental property investment management application for researching, analyzing, an
 
 ### Settings (`/settings`)
 - **Profile:** Name, email, company/LLC name
-- **Notifications:** Lease expiration reminders, maintenance alerts, payment reminders
+- **Notifications:**
+  - Lease expiration reminders, maintenance alerts, payment reminders
+  - **Email notifications via Resend**
+  - Test notification button
 - **Default Values:** Vacancy rate, property management fee, maintenance reserve, appreciation rate, rent growth rate, interest rate
 - **Data Management:** Export properties, transactions, all data to CSV
 
@@ -230,8 +264,17 @@ Rental property investment management application for researching, analyzing, an
 ### Supabase
 - **URL:** `https://viaknzbkplndcqqoyupe.supabase.co`
 - PostgreSQL database
+- **Supabase Storage:** `documents` bucket for file uploads
 - Real-time subscriptions available
 - Row Level Security (RLS) ready but not yet enabled
+
+### Resend (Email)
+- **API Key:** Environment variable `RESEND_API_KEY`
+- Email templates for:
+  - Lease expiration reminders (30/60/90 days)
+  - Maintenance alerts
+  - Payment reminders
+- Lazy initialization to avoid build-time errors
 
 ---
 
@@ -244,6 +287,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 
 # Rentcast API (for property search)
 RENTCAST_API_KEY=your_rentcast_api_key
+
+# Resend (email notifications)
+RESEND_API_KEY=your_resend_api_key
 ```
 
 **Note:** Set in both `.env.local` (local dev) and Vercel (production).
@@ -276,6 +322,9 @@ src/
 │   │   ├── import/page.tsx         # CSV import
 │   │   └── actions.ts              # Server actions
 │   ├── documents/page.tsx          # Document management
+│   ├── reports/
+│   │   ├── page.tsx                # Reports server component
+│   │   └── reports-client.tsx      # Reports with tabs (P&L, Tax, Compare)
 │   └── settings/page.tsx           # User settings
 ├── components/
 │   ├── layout/
@@ -301,6 +350,9 @@ src/
 | `src/lib/database.ts` | All Supabase CRUD operations |
 | `src/lib/rentcast.ts` | Rentcast API integration |
 | `src/lib/proforma-calculations.ts` | Financial formulas (mortgage, IRR, NPV, etc.) |
+| `src/lib/email.ts` | Resend email service integration |
+| `src/lib/supabase/storage.ts` | Supabase Storage file upload helpers |
+| `src/lib/report-calculations.ts` | Report data aggregation functions |
 | `src/types/index.ts` | TypeScript interfaces for all entities |
 | `supabase/schema.sql` | Database table definitions |
 
@@ -334,7 +386,7 @@ src/
 
 ### Transaction Categories
 **Income:** Rent, Late Fee, Pet Fee, Application Fee, Security Deposit, Transfer to Checking, Other Income
-**Expense:** Mortgage, Insurance, Property Tax, HOA, Utilities, Repairs, Maintenance, Property Management, Landscaping, Pest Control, Legal, Advertising, Supplies, Travel, Tax Prep, Transfer to Checking, Transfer to Money Market, Other Expense
+**Expense:** Mortgage, Insurance, Property Tax, **County Taxes**, HOA, Utilities, Repairs, Maintenance, Property Management, Landscaping, Pest Control, Legal, Advertising, Supplies, Travel, Tax Prep, Transfer to Checking, Transfer to Money Market, Other Expense
 
 ---
 
@@ -484,10 +536,10 @@ ALTER COLUMN status TYPE TEXT;
   - Matt Nee: mdnee@uss.com
 - [x] User roles and permissions - **Not needed** (both users have equal access)
 - [ ] Tenant management UI improvements
-- [ ] Document uploads (Supabase Storage)
-- [ ] Reports page enhancements
+- [x] Document uploads (Supabase Storage)
+- [x] Reports page enhancements (P&L, Tax Summary, Property Comparison)
 - [ ] Mobile responsive improvements
-- [ ] Email notifications
+- [x] Email notifications (Resend integration)
 
 ---
 
@@ -718,6 +770,110 @@ ALTER COLUMN status TYPE TEXT;
 - `src/app/banking/actions.ts` - updateBankAccountAction
 - `src/lib/database.ts` - Throw errors on update failures
 - `src/types/index.ts` - New transaction categories
+
+---
+
+### Session 6 - February 2, 2026
+
+**Reports Page (`/reports`):**
+- Created new reports page with three tabs:
+  - **Income Statement (P&L)** - Revenue, expenses, net income by property/date range
+  - **Tax Summary (Schedule E)** - IRS format with rental income and deductible expenses
+  - **Property Comparison** - Side-by-side metrics with bar chart visualization
+- Date range picker (This Month, This Quarter, This Year, Last Year, All Time)
+- Property filter dropdown
+- CSV export for all reports
+
+**Document Uploads (Supabase Storage):**
+- Created `documents` bucket in Supabase Storage
+- File upload with drag-and-drop and file picker
+- Upload progress indicator
+- Max 10MB file size, supports PDF, images, common doc formats
+- Existing URL link option preserved
+- New file: `src/lib/supabase/storage.ts`
+
+**Email Notifications (Resend):**
+- Integrated Resend email service
+- Lazy initialization to avoid build-time errors without API key
+- Email templates for:
+  - Lease expiration reminders (30/60/90 days)
+  - Maintenance alerts
+  - Payment reminders
+- Test notification button in Settings
+- New files: `src/lib/email.ts`, `src/app/settings/actions.ts`
+
+**Budget Improvements:**
+- Budget items are now editable (inline edit mode)
+- Delete budget items
+- Added "County Taxes" expense category
+
+**Dashboard Cash Balance:**
+- Added Cash Balance card showing sum of all bank account balances
+- Uses Wallet icon
+- Shows number of accounts
+
+**Proforma Calculator - Refinance & HELOC Modeling:**
+- Added collapsible "Financing Options" section
+- **Refinance modeling:**
+  - Refinance year, new interest rate, new loan term
+  - Cash out amount, closing costs
+  - Shows estimated property value at refinance year
+  - Calculates new monthly payment
+- **HELOC modeling:**
+  - HELOC year, amount, interest rate
+  - Repayment term, draw period
+  - Shows draw period (interest-only) vs full repayment payments
+
+**Calculator Input Formatting:**
+- Added $ icons to all dollar-amount fields
+- Changed HOA from monthly to annual input (helper text shows monthly)
+- Fixed leading zeros using `value || ''` pattern on all numeric inputs
+
+**Active vs Sold Properties:**
+- Properties page now separates active and sold properties
+- Active properties in main table
+- Sold properties in collapsible section (collapsed by default)
+- Click to expand sold section with Archive icon
+- Shows total sold value in section header
+
+**Research Document Type:**
+- Added "Research" to document types in both `/documents` and `/resources/documents`
+
+**Database Changes:**
+```sql
+-- Notification preferences table
+CREATE TABLE notification_preferences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  lease_expiration_reminders BOOLEAN DEFAULT true,
+  maintenance_alerts BOOLEAN DEFAULT true,
+  payment_reminders BOOLEAN DEFAULT false,
+  email TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Supabase Storage bucket: "documents"
+```
+
+**Files Changed:**
+- `src/app/page.tsx` - Cash Balance card
+- `src/app/properties/properties-client.tsx` - Active vs Sold sections
+- `src/app/calculator/calculator-client.tsx` - Refinance/HELOC, input formatting
+- `src/app/budget/budget-client.tsx` - Editable budget items
+- `src/app/documents/documents-client.tsx` - File upload, Research type
+- `src/app/resources/documents/documents-client.tsx` - Research type
+- `src/app/settings/page.tsx` - Connected to notification preferences
+- `src/types/index.ts` - County Taxes category
+
+**New Files:**
+- `src/app/reports/page.tsx`
+- `src/app/reports/reports-client.tsx`
+- `src/lib/report-calculations.ts`
+- `src/lib/email.ts`
+- `src/lib/supabase/storage.ts`
+- `src/app/settings/actions.ts`
+- `src/app/api/notifications/send/route.ts`
 
 ---
 
