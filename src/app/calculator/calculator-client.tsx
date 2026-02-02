@@ -611,9 +611,9 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                   <Label>Down Payment %</Label>
                   <Input
                     type="number"
-                    value={rentalType === 'ltr' ? ltrScenario.down_payment_pct : strScenario.down_payment_pct}
+                    value={(rentalType === 'ltr' ? ltrScenario.down_payment_pct : strScenario.down_payment_pct) || ''}
                     onChange={(e) => {
-                      const val = Number(e.target.value);
+                      const val = Number(e.target.value) || 0;
                       if (rentalType === 'ltr') {
                         updateLtrScenario('down_payment_pct', val);
                       } else {
@@ -653,9 +653,9 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                 <Input
                   type="number"
                   step="0.1"
-                  value={rentalType === 'ltr' ? ltrScenario.interest_rate : strScenario.interest_rate}
+                  value={(rentalType === 'ltr' ? ltrScenario.interest_rate : strScenario.interest_rate) || ''}
                   onChange={(e) => {
-                    const val = Number(e.target.value);
+                    const val = Number(e.target.value) || 0;
                     if (rentalType === 'ltr') {
                       updateLtrScenario('interest_rate', val);
                     } else {
@@ -669,9 +669,9 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                   <Label>Loan Term (years)</Label>
                   <Input
                     type="number"
-                    value={rentalType === 'ltr' ? ltrScenario.loan_term : strScenario.loan_term}
+                    value={(rentalType === 'ltr' ? ltrScenario.loan_term : strScenario.loan_term) || ''}
                     onChange={(e) => {
-                      const val = Number(e.target.value);
+                      const val = Number(e.target.value) || 0;
                       if (rentalType === 'ltr') {
                         updateLtrScenario('loan_term', val);
                       } else {
@@ -682,34 +682,42 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                 </div>
                 <div className="space-y-2">
                   <Label>Closing Costs</Label>
-                  <Input
-                    type="number"
-                    value={rentalType === 'ltr' ? ltrScenario.closing_costs : strScenario.closing_costs}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      if (rentalType === 'ltr') {
-                        updateLtrScenario('closing_costs', val);
-                      } else {
-                        updateStrScenario('closing_costs', val);
-                      }
-                    }}
-                  />
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      className="pl-8"
+                      value={(rentalType === 'ltr' ? ltrScenario.closing_costs : strScenario.closing_costs) || ''}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0;
+                        if (rentalType === 'ltr') {
+                          updateLtrScenario('closing_costs', val);
+                        } else {
+                          updateStrScenario('closing_costs', val);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>Rehab Budget</Label>
-                <Input
-                  type="number"
-                  value={rentalType === 'ltr' ? ltrScenario.rehab_budget : strScenario.rehab_budget}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    if (rentalType === 'ltr') {
-                      updateLtrScenario('rehab_budget', val);
-                    } else {
-                      updateStrScenario('rehab_budget', val);
-                    }
-                  }}
-                />
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    className="pl-8"
+                    value={(rentalType === 'ltr' ? ltrScenario.rehab_budget : strScenario.rehab_budget) || ''}
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      if (rentalType === 'ltr') {
+                        updateLtrScenario('rehab_budget', val);
+                      } else {
+                        updateStrScenario('rehab_budget', val);
+                      }
+                    }}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -730,8 +738,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                     <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      value={ltrScenario.monthly_rent}
-                      onChange={(e) => updateLtrScenario('monthly_rent', Number(e.target.value))}
+                      value={ltrScenario.monthly_rent || ''}
+                      onChange={(e) => updateLtrScenario('monthly_rent', Number(e.target.value) || 0)}
                       className="pl-8"
                     />
                   </div>
@@ -741,35 +749,43 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                     <Label>Vacancy Rate %</Label>
                     <Input
                       type="number"
-                      value={ltrScenario.vacancy_rate}
-                      onChange={(e) => updateLtrScenario('vacancy_rate', Number(e.target.value))}
+                      value={ltrScenario.vacancy_rate || ''}
+                      onChange={(e) => updateLtrScenario('vacancy_rate', Number(e.target.value) || 0)}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Prop Mgmt %</Label>
                     <Input
                       type="number"
-                      value={ltrScenario.property_mgmt_pct}
-                      onChange={(e) => updateLtrScenario('property_mgmt_pct', Number(e.target.value))}
+                      value={ltrScenario.property_mgmt_pct || ''}
+                      onChange={(e) => updateLtrScenario('property_mgmt_pct', Number(e.target.value) || 0)}
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Annual Insurance</Label>
-                    <Input
-                      type="number"
-                      value={ltrScenario.insurance}
-                      onChange={(e) => updateLtrScenario('insurance', Number(e.target.value))}
-                    />
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        className="pl-8"
+                        value={ltrScenario.insurance || ''}
+                        onChange={(e) => updateLtrScenario('insurance', Number(e.target.value) || 0)}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Annual Taxes</Label>
-                    <Input
-                      type="number"
-                      value={ltrScenario.taxes}
-                      onChange={(e) => updateLtrScenario('taxes', Number(e.target.value))}
-                    />
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        className="pl-8"
+                        value={ltrScenario.taxes || ''}
+                        onChange={(e) => updateLtrScenario('taxes', Number(e.target.value) || 0)}
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -777,17 +793,22 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                     <Label>Maintenance %</Label>
                     <Input
                       type="number"
-                      value={ltrScenario.maintenance_reserve_pct}
-                      onChange={(e) => updateLtrScenario('maintenance_reserve_pct', Number(e.target.value))}
+                      value={ltrScenario.maintenance_reserve_pct || ''}
+                      onChange={(e) => updateLtrScenario('maintenance_reserve_pct', Number(e.target.value) || 0)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Monthly HOA</Label>
-                    <Input
-                      type="number"
-                      value={ltrScenario.hoa}
-                      onChange={(e) => updateLtrScenario('hoa', Number(e.target.value))}
-                    />
+                    <Label>Annual HOA</Label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        className="pl-8"
+                        value={ltrScenario.hoa * 12 || ''}
+                        onChange={(e) => updateLtrScenario('hoa', (Number(e.target.value) || 0) / 12)}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">${(ltrScenario.hoa || 0).toFixed(0)}/mo</p>
                   </div>
                 </div>
               </CardContent>
@@ -810,8 +831,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                     <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      value={strScenario.avg_daily_rate}
-                      onChange={(e) => updateStrScenario('avg_daily_rate', Number(e.target.value))}
+                      value={strScenario.avg_daily_rate || ''}
+                      onChange={(e) => updateStrScenario('avg_daily_rate', Number(e.target.value) || 0)}
                       className="pl-8"
                     />
                   </div>
@@ -821,8 +842,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                     <Label>Occupancy Rate %</Label>
                     <Input
                       type="number"
-                      value={strScenario.occupancy_rate}
-                      onChange={(e) => updateStrScenario('occupancy_rate', Number(e.target.value))}
+                      value={strScenario.occupancy_rate || ''}
+                      onChange={(e) => updateStrScenario('occupancy_rate', Number(e.target.value) || 0)}
                     />
                   </div>
                   <div className="space-y-2">
@@ -932,8 +953,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                     <Label>Prop Mgmt %</Label>
                     <Input
                       type="number"
-                      value={strScenario.property_mgmt_pct}
-                      onChange={(e) => updateStrScenario('property_mgmt_pct', Number(e.target.value))}
+                      value={strScenario.property_mgmt_pct || ''}
+                      onChange={(e) => updateStrScenario('property_mgmt_pct', Number(e.target.value) || 0)}
                     />
                   </div>
                   <div className="space-y-2">
@@ -941,8 +962,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                     <Input
                       type="number"
                       step="0.1"
-                      value={strScenario.listing_service_pct}
-                      onChange={(e) => updateStrScenario('listing_service_pct', Number(e.target.value))}
+                      value={strScenario.listing_service_pct || ''}
+                      onChange={(e) => updateStrScenario('listing_service_pct', Number(e.target.value) || 0)}
                     />
                     <p className="text-xs text-muted-foreground">Airbnb, VRBO fees</p>
                   </div>
@@ -950,18 +971,22 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Cleaning $/Turnover</Label>
-                    <Input
-                      type="number"
-                      value={strScenario.cleaning_cost_per_turnover}
-                      onChange={(e) => updateStrScenario('cleaning_cost_per_turnover', Number(e.target.value))}
-                    />
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        className="pl-8"
+                        value={strScenario.cleaning_cost_per_turnover || ''}
+                        onChange={(e) => updateStrScenario('cleaning_cost_per_turnover', Number(e.target.value) || 0)}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Turnovers/Year</Label>
                     <Input
                       type="number"
-                      value={strScenario.turnovers_per_year}
-                      onChange={(e) => updateStrScenario('turnovers_per_year', Number(e.target.value))}
+                      value={strScenario.turnovers_per_year || ''}
+                      onChange={(e) => updateStrScenario('turnovers_per_year', Number(e.target.value) || 0)}
                     />
                   </div>
                 </div>
@@ -969,45 +994,62 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                   <Label>Capital Reserve %</Label>
                   <Input
                     type="number"
-                    value={strScenario.capital_reserve_pct}
-                    onChange={(e) => updateStrScenario('capital_reserve_pct', Number(e.target.value))}
+                    value={strScenario.capital_reserve_pct || ''}
+                    onChange={(e) => updateStrScenario('capital_reserve_pct', Number(e.target.value) || 0)}
                   />
                 </div>
                 <Separator />
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Annual Insurance</Label>
-                    <Input
-                      type="number"
-                      value={strScenario.insurance}
-                      onChange={(e) => updateStrScenario('insurance', Number(e.target.value))}
-                    />
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        className="pl-8"
+                        value={strScenario.insurance || ''}
+                        onChange={(e) => updateStrScenario('insurance', Number(e.target.value) || 0)}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Annual Taxes</Label>
-                    <Input
-                      type="number"
-                      value={strScenario.taxes}
-                      onChange={(e) => updateStrScenario('taxes', Number(e.target.value))}
-                    />
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        className="pl-8"
+                        value={strScenario.taxes || ''}
+                        onChange={(e) => updateStrScenario('taxes', Number(e.target.value) || 0)}
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Monthly HOA</Label>
-                    <Input
-                      type="number"
-                      value={strScenario.hoa}
-                      onChange={(e) => updateStrScenario('hoa', Number(e.target.value))}
-                    />
+                    <Label>Annual HOA</Label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        className="pl-8"
+                        value={strScenario.hoa * 12 || ''}
+                        onChange={(e) => updateStrScenario('hoa', (Number(e.target.value) || 0) / 12)}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">${(strScenario.hoa || 0).toFixed(0)}/mo</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Monthly Utilities</Label>
-                    <Input
-                      type="number"
-                      value={strScenario.utilities}
-                      onChange={(e) => updateStrScenario('utilities', Number(e.target.value))}
-                    />
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        className="pl-8"
+                        value={strScenario.utilities || ''}
+                        onChange={(e) => updateStrScenario('utilities', Number(e.target.value) || 0)}
+                      />
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -1029,9 +1071,9 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                   <Input
                     type="number"
                     step="0.1"
-                    value={rentalType === 'ltr' ? ltrScenario.appreciation_rate : strScenario.appreciation_rate}
+                    value={(rentalType === 'ltr' ? ltrScenario.appreciation_rate : strScenario.appreciation_rate) || ''}
                     onChange={(e) => {
-                      const val = Number(e.target.value);
+                      const val = Number(e.target.value) || 0;
                       if (rentalType === 'ltr') {
                         updateLtrScenario('appreciation_rate', val);
                       } else {
@@ -1045,9 +1087,9 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                   <Input
                     type="number"
                     step="0.1"
-                    value={rentalType === 'ltr' ? ltrScenario.rent_growth_rate : strScenario.adr_growth_rate}
+                    value={(rentalType === 'ltr' ? ltrScenario.rent_growth_rate : strScenario.adr_growth_rate) || ''}
                     onChange={(e) => {
-                      const val = Number(e.target.value);
+                      const val = Number(e.target.value) || 0;
                       if (rentalType === 'ltr') {
                         updateLtrScenario('rent_growth_rate', val);
                       } else {
@@ -1110,8 +1152,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                           <Input
                             type="number"
                             min="1"
-                            value={refinanceYear}
-                            onChange={(e) => setRefinanceYear(Number(e.target.value))}
+                            value={refinanceYear || ''}
+                            onChange={(e) => setRefinanceYear(Number(e.target.value) || 0)}
                           />
                         </div>
                         <div className="space-y-2">
@@ -1119,8 +1161,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                           <Input
                             type="number"
                             step="0.1"
-                            value={refinanceRate}
-                            onChange={(e) => setRefinanceRate(Number(e.target.value))}
+                            value={refinanceRate || ''}
+                            onChange={(e) => setRefinanceRate(Number(e.target.value) || 0)}
                           />
                         </div>
                       </div>
@@ -1129,8 +1171,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                           <Label>New Loan Term (years)</Label>
                           <Input
                             type="number"
-                            value={refinanceTerm}
-                            onChange={(e) => setRefinanceTerm(Number(e.target.value))}
+                            value={refinanceTerm || ''}
+                            onChange={(e) => setRefinanceTerm(Number(e.target.value) || 0)}
                           />
                         </div>
                         <div className="space-y-2">
@@ -1139,8 +1181,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                             <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
                               type="number"
-                              value={refinanceCashOut}
-                              onChange={(e) => setRefinanceCashOut(Number(e.target.value))}
+                              value={refinanceCashOut || ''}
+                              onChange={(e) => setRefinanceCashOut(Number(e.target.value) || 0)}
                               className="pl-8"
                             />
                           </div>
@@ -1152,8 +1194,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                           <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                           <Input
                             type="number"
-                            value={refinanceClosingCosts}
-                            onChange={(e) => setRefinanceClosingCosts(Number(e.target.value))}
+                            value={refinanceClosingCosts || ''}
+                            onChange={(e) => setRefinanceClosingCosts(Number(e.target.value) || 0)}
                             className="pl-8"
                           />
                         </div>
@@ -1187,8 +1229,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                           <Input
                             type="number"
                             min="1"
-                            value={helocYear}
-                            onChange={(e) => setHelocYear(Number(e.target.value))}
+                            value={helocYear || ''}
+                            onChange={(e) => setHelocYear(Number(e.target.value) || 0)}
                           />
                         </div>
                         <div className="space-y-2">
@@ -1197,8 +1239,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                             <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
                               type="number"
-                              value={helocAmount}
-                              onChange={(e) => setHelocAmount(Number(e.target.value))}
+                              value={helocAmount || ''}
+                              onChange={(e) => setHelocAmount(Number(e.target.value) || 0)}
                               className="pl-8"
                             />
                           </div>
@@ -1210,16 +1252,16 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                           <Input
                             type="number"
                             step="0.1"
-                            value={helocRate}
-                            onChange={(e) => setHelocRate(Number(e.target.value))}
+                            value={helocRate || ''}
+                            onChange={(e) => setHelocRate(Number(e.target.value) || 0)}
                           />
                         </div>
                         <div className="space-y-2">
                           <Label>Repayment Term (years)</Label>
                           <Input
                             type="number"
-                            value={helocTerm}
-                            onChange={(e) => setHelocTerm(Number(e.target.value))}
+                            value={helocTerm || ''}
+                            onChange={(e) => setHelocTerm(Number(e.target.value) || 0)}
                           />
                         </div>
                       </div>
@@ -1227,8 +1269,8 @@ export function CalculatorClient({ prospects, initialProspect, savedScenarios = 
                         <Label>Draw Period (years)</Label>
                         <Input
                           type="number"
-                          value={helocDrawPeriod}
-                          onChange={(e) => setHelocDrawPeriod(Number(e.target.value))}
+                          value={helocDrawPeriod || ''}
+                          onChange={(e) => setHelocDrawPeriod(Number(e.target.value) || 0)}
                         />
                         <p className="text-xs text-muted-foreground">
                           Interest-only payments during draw period
