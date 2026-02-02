@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -49,9 +51,13 @@ import {
   Link as LinkIcon,
   Loader2,
   Plus,
+  Upload,
+  X,
+  Download,
 } from 'lucide-react';
 import type { Property, Prospect } from '@/types';
 import { createDocumentAction, deleteDocumentAction } from './actions';
+import { uploadFile, validateFile, formatFileSize, type UploadProgress } from '@/lib/supabase/storage';
 
 interface Document {
   id: string;
@@ -81,17 +87,24 @@ const documentTypeLabels: Record<string, string> = {
 };
 
 // Detect source from URL
-const getSourceFromUrl = (url: string): { source: string; icon: string } => {
+const getSourceFromUrl = (url: string, fileSize?: number | null): { source: string; icon: string; isUploaded: boolean } => {
+  if (url.includes('supabase') && url.includes('/storage/')) {
+    return { source: 'Uploaded', icon: '📄', isUploaded: true };
+  }
   if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
-    return { source: 'Google Drive', icon: '📁' };
+    return { source: 'Google Drive', icon: '📁', isUploaded: false };
   }
   if (url.includes('dropbox.com')) {
-    return { source: 'Dropbox', icon: '📦' };
+    return { source: 'Dropbox', icon: '📦', isUploaded: false };
   }
   if (url.includes('onedrive.com') || url.includes('sharepoint.com')) {
-    return { source: 'OneDrive', icon: '☁️' };
+    return { source: 'OneDrive', icon: '☁️', isUploaded: false };
   }
-  return { source: 'Link', icon: '🔗' };
+  // If has file size, likely an upload
+  if (fileSize) {
+    return { source: 'Uploaded', icon: '📄', isUploaded: true };
+  }
+  return { source: 'Link', icon: '🔗', isUploaded: false };
 };
 
 export function DocumentsClient({ properties, prospects, initialDocuments }: DocumentsClientProps) {
@@ -102,6 +115,12 @@ export function DocumentsClient({ properties, prospects, initialDocuments }: Doc
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [uploadTab, setUploadTab] = useState<string>('upload');
+  const [dragActive, setDragActive] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [newDoc, setNewDoc] = useState({
     name: '',
@@ -109,6 +128,61 @@ export function DocumentsClient({ properties, prospects, initialDocuments }: Doc
     file_url: '',
     property_id: 'none',
   });
+
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    setUploadError(null);
+
+    const files = e.dataTransfer.files;
+    if (files && files[0]) {
+      const validation = validateFile(files[0]);
+      if (!validation.valid) {
+        setUploadError(validation.error || 'Invalid file');
+        return;
+      }
+      setSelectedFile(files[0]);
+      if (!newDoc.name) {
+        setNewDoc(prev => ({ ...prev, name: files[0].name.replace(/\.[^/.]+$/, '') }));
+      }
+    }
+  }, [newDoc.name]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null);
+    const files = e.target.files;
+    if (files && files[0]) {
+      const validation = validateFile(files[0]);
+      if (!validation.valid) {
+        setUploadError(validation.error || 'Invalid file');
+        return;
+      }
+      setSelectedFile(files[0]);
+      if (!newDoc.name) {
+        setNewDoc(prev => ({ ...prev, name: files[0].name.replace(/\.[^/.]+$/, '') }));
+      }
+    }
+  };
+
+  const clearSelectedFile = () => {
+    setSelectedFile(null);
+    setUploadProgress(null);
+    setUploadError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch = doc.name.toLowerCase().includes(search.toLowerCase());
@@ -118,6 +192,49 @@ export function DocumentsClient({ properties, prospects, initialDocuments }: Doc
   });
 
   const handleAddDocument = async () => {
+    // For file upload
+    if (uploadTab === 'upload' && selectedFile) {
+      if (!newDoc.name) return;
+
+      setIsSubmitting(true);
+      setUploadError(null);
+
+      try {
+        const propertyId = newDoc.property_id === 'none' ? null : newDoc.property_id;
+        const uploadResult = await uploadFile(
+          selectedFile,
+          propertyId,
+          setUploadProgress
+        );
+
+        if (!uploadResult.success) {
+          setUploadError(uploadResult.error || 'Upload failed');
+          return;
+        }
+
+        const result = await createDocumentAction({
+          name: newDoc.name,
+          type: newDoc.type,
+          file_url: uploadResult.url!,
+          property_id: propertyId,
+          file_size: uploadResult.fileSize,
+        });
+
+        if (result.success && result.document) {
+          setDocuments([result.document, ...documents]);
+          resetForm();
+        } else {
+          setUploadError(result.error || 'Failed to save document');
+        }
+      } catch (error) {
+        setUploadError('An unexpected error occurred');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // For URL link
     if (!newDoc.name || !newDoc.file_url) return;
 
     setIsSubmitting(true);
@@ -131,11 +248,21 @@ export function DocumentsClient({ properties, prospects, initialDocuments }: Doc
 
       if (result.success && result.document) {
         setDocuments([result.document, ...documents]);
-        setNewDoc({ name: '', type: 'other', file_url: '', property_id: 'none' });
-        setIsDialogOpen(false);
+        resetForm();
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    setNewDoc({ name: '', type: 'other', file_url: '', property_id: 'none' });
+    setSelectedFile(null);
+    setUploadProgress(null);
+    setUploadError(null);
+    setIsDialogOpen(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -168,14 +295,119 @@ export function DocumentsClient({ properties, prospects, initialDocuments }: Doc
               Add Document
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Add Document Link</DialogTitle>
+              <DialogTitle>Add Document</DialogTitle>
               <DialogDescription>
-                Link a document from Google Drive, Dropbox, or any URL
+                Upload a file or link to an external document
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <Tabs value={uploadTab} onValueChange={setUploadTab} className="mt-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="upload">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload File
+                </TabsTrigger>
+                <TabsTrigger value="link">
+                  <LinkIcon className="mr-2 h-4 w-4" />
+                  Link URL
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="upload" className="space-y-4 mt-4">
+                {/* Drag and drop zone */}
+                <div
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                  className={`
+                    relative rounded-lg border-2 border-dashed p-8 text-center transition-colors
+                    ${dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}
+                    ${selectedFile ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : ''}
+                  `}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileSelect}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.webp"
+                  />
+                  {selectedFile ? (
+                    <div className="space-y-2">
+                      <File className="mx-auto h-10 w-10 text-green-600" />
+                      <div>
+                        <p className="font-medium">{selectedFile.name}</p>
+                        <p className="text-sm text-muted-foreground">{formatFileSize(selectedFile.size)}</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          clearSelectedFile();
+                        }}
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Upload className="mx-auto h-10 w-10 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">Drop file here or click to browse</p>
+                        <p className="text-sm text-muted-foreground">
+                          PDF, images, Word, Excel (max 10MB)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {uploadProgress && (
+                  <div className="space-y-2">
+                    <Progress value={uploadProgress.percentage} />
+                    <p className="text-sm text-muted-foreground text-center">
+                      Uploading... {uploadProgress.percentage}%
+                    </p>
+                  </div>
+                )}
+
+                {uploadError && (
+                  <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                    {uploadError}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="link" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="url">Document URL *</Label>
+                  <Input
+                    id="url"
+                    value={newDoc.file_url}
+                    onChange={(e) => setNewDoc({ ...newDoc, file_url: e.target.value })}
+                    placeholder="Paste Google Drive, Dropbox, or other link"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Supports Google Drive, Dropbox, OneDrive, and any direct link
+                  </p>
+                </div>
+                {newDoc.file_url && (
+                  <div className="flex items-center gap-2 rounded-lg bg-muted p-3">
+                    <span className="text-lg">{getSourceFromUrl(newDoc.file_url).icon}</span>
+                    <span className="text-sm">
+                      Detected: <strong>{getSourceFromUrl(newDoc.file_url).source}</strong>
+                    </span>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+
+            <div className="space-y-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Document Name *</Label>
                 <Input
@@ -184,18 +416,6 @@ export function DocumentsClient({ properties, prospects, initialDocuments }: Doc
                   onChange={(e) => setNewDoc({ ...newDoc, name: e.target.value })}
                   placeholder="e.g., Lease Agreement - 123 Main St"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="url">Document URL *</Label>
-                <Input
-                  id="url"
-                  value={newDoc.file_url}
-                  onChange={(e) => setNewDoc({ ...newDoc, file_url: e.target.value })}
-                  placeholder="Paste Google Drive, Dropbox, or other link"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Supports Google Drive, Dropbox, OneDrive, and any direct link
-                </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -238,29 +458,28 @@ export function DocumentsClient({ properties, prospects, initialDocuments }: Doc
                   </Select>
                 </div>
               </div>
-              {newDoc.file_url && (
-                <div className="flex items-center gap-2 rounded-lg bg-muted p-3">
-                  <span className="text-lg">{getSourceFromUrl(newDoc.file_url).icon}</span>
-                  <span className="text-sm">
-                    Detected: <strong>{getSourceFromUrl(newDoc.file_url).source}</strong>
-                  </span>
-                </div>
-              )}
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+
+            <DialogFooter className="mt-6">
+              <Button variant="outline" onClick={resetForm}>
                 Cancel
               </Button>
               <Button
                 onClick={handleAddDocument}
-                disabled={isSubmitting || !newDoc.name || !newDoc.file_url}
+                disabled={
+                  isSubmitting ||
+                  !newDoc.name ||
+                  (uploadTab === 'upload' ? !selectedFile : !newDoc.file_url)
+                }
               >
                 {isSubmitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : uploadTab === 'upload' ? (
+                  <Upload className="mr-2 h-4 w-4" />
                 ) : (
                   <LinkIcon className="mr-2 h-4 w-4" />
                 )}
-                Add Document
+                {uploadTab === 'upload' ? 'Upload Document' : 'Add Link'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -378,7 +597,7 @@ export function DocumentsClient({ properties, prospects, initialDocuments }: Doc
               <TableBody>
                 {filteredDocuments.map((doc) => {
                   const property = properties.find(p => p.id === doc.property_id);
-                  const { source, icon } = getSourceFromUrl(doc.file_url);
+                  const { source, icon, isUploaded } = getSourceFromUrl(doc.file_url, doc.file_size);
                   return (
                     <TableRow key={doc.id}>
                       <TableCell>
@@ -387,10 +606,22 @@ export function DocumentsClient({ properties, prospects, initialDocuments }: Doc
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 font-medium hover:underline text-primary"
+                          download={isUploaded ? doc.name : undefined}
                         >
                           <span>{icon}</span>
-                          {doc.name}
-                          <ExternalLink className="h-3 w-3" />
+                          <div>
+                            <div>{doc.name}</div>
+                            {doc.file_size && (
+                              <div className="text-xs text-muted-foreground font-normal">
+                                {formatFileSize(doc.file_size)}
+                              </div>
+                            )}
+                          </div>
+                          {isUploaded ? (
+                            <Download className="h-3 w-3" />
+                          ) : (
+                            <ExternalLink className="h-3 w-3" />
+                          )}
                         </a>
                       </TableCell>
                       <TableCell>
@@ -429,9 +660,14 @@ export function DocumentsClient({ properties, prospects, initialDocuments }: Doc
                                 href={doc.file_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                download={isUploaded ? doc.name : undefined}
                               >
-                                <ExternalLink className="mr-2 h-4 w-4" />
-                                Open
+                                {isUploaded ? (
+                                  <Download className="mr-2 h-4 w-4" />
+                                ) : (
+                                  <ExternalLink className="mr-2 h-4 w-4" />
+                                )}
+                                {isUploaded ? 'Download' : 'Open'}
                               </a>
                             </DropdownMenuItem>
                             <DropdownMenuItem

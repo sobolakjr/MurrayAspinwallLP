@@ -19,6 +19,7 @@ import {
   PieChart,
   HelpCircle,
   MessageSquare,
+  BarChart3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -37,6 +38,7 @@ const navigation: NavItem[] = [
   { name: 'Calculator', href: '/calculator', icon: Calculator },
   { name: 'Banking', href: '/banking', icon: CreditCard },
   { name: 'Budget', href: '/budget', icon: PieChart },
+  { name: 'Reports', href: '/reports', icon: BarChart3 },
   {
     name: 'Resources',
     href: '/resources',

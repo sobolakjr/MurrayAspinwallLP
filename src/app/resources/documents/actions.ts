@@ -9,6 +9,7 @@ interface CreateDocumentInput {
   name: string;
   type: string;
   file_url: string;
+  file_size?: number | null;
 }
 
 export async function createDocumentAction(
@@ -21,7 +22,7 @@ export async function createDocumentAction(
       name: input.name,
       type: input.type,
       file_url: input.file_url,
-      file_size: null,
+      file_size: input.file_size ?? null,
     });
 
     if (!document) {
