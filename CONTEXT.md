@@ -5,7 +5,7 @@ Rental property investment management application for researching, analyzing, an
 
 **Live URL:** https://murrayaspinwall.com
 **GitHub:** https://github.com/sobolakjr/MurrayAspinwallLP
-**Vercel Project:** https://vercel.com/omlielabs/rental-property-app
+**Vercel Project:** https://vercel.com/ds-ibbiles/murrayaspinwall
 
 ---
 
@@ -333,8 +333,8 @@ src/
 - `MaintenanceStatus`: pending, in_progress, completed
 
 ### Transaction Categories
-**Income:** Rent, Late Fee, Pet Fee, Application Fee, Security Deposit, Other Income
-**Expense:** Mortgage, Insurance, Property Tax, HOA, Utilities, Repairs, Maintenance, Property Management, Landscaping, Pest Control, Legal, Advertising, Supplies, Travel, Other Expense
+**Income:** Rent, Late Fee, Pet Fee, Application Fee, Security Deposit, Transfer to Checking, Other Income
+**Expense:** Mortgage, Insurance, Property Tax, HOA, Utilities, Repairs, Maintenance, Property Management, Landscaping, Pest Control, Legal, Advertising, Supplies, Travel, Tax Prep, Transfer to Checking, Transfer to Money Market, Other Expense
 
 ---
 
@@ -445,7 +445,7 @@ ALTER COLUMN status TYPE TEXT;
 | Service | Dashboard |
 |---------|-----------|
 | Supabase | https://supabase.com/dashboard/project/viaknzbkplndcqqoyupe |
-| Vercel | https://vercel.com/omlielabs/rental-property-app |
+| Vercel | https://vercel.com/ds-ibbiles/murrayaspinwall |
 | Rentcast | https://rentcast.io/dashboard |
 | GitHub | https://github.com/sobolakjr/MurrayAspinwallLP |
 
@@ -663,6 +663,61 @@ ALTER COLUMN status TYPE TEXT;
 
 **Additional Files Changed:**
 - `src/app/prospects/[id]/prospect-detail-client.tsx` - Collapsible API section, Zillow link
+
+---
+
+### Session 5 - February 2026
+
+**Calculator Prospect Dropdown:**
+- Added prospect selector dropdown to calculator header
+- Selecting a prospect auto-fills purchase price and taxes from prospect data
+- Saved scenarios are linked to the selected prospect via `prospect_id`
+- Property name (address) shown in header when prospect selected
+
+**Calculator Down Payment Fields:**
+- Added both Down Payment % and Down Payment $ inputs
+- Fields are dynamically linked - changing one updates the other
+- Dollar amount calculated from: `purchase_price × down_payment_pct / 100`
+
+**Prospect Detail - Saved Scenarios Section:**
+- New "Saved Proforma Scenarios" card on prospect detail page
+- Shows all scenarios linked to that prospect
+- Displays: scenario name, LTR/STR badge, creation date, purchase price
+- Click to open scenario in calculator
+
+**Prospects List - Listing Price Display:**
+- Now shows manual listing price (from `api_data.listingPrice`) instead of last sale price
+- Falls back to `list_price` if no manual listing price set
+
+**Banking Enhancements:**
+- Added Payee field to transactions
+- Added new transaction categories:
+  - Income: "Transfer to Checking"
+  - Expense: "Tax Prep", "Transfer to Checking", "Transfer to Money Market"
+- Added ability to edit bank account balances (Edit button on account cards)
+
+**Listing Price Save Fix:**
+- Added "Save Price" button under listing price input on prospect detail
+- Fixed page refresh after save with `router.refresh()`
+- Better error messages showing actual Supabase errors
+
+**Removed Broken Link:**
+- Removed "Add Feedback" from prospects dropdown menu (route didn't exist)
+- Prospect notes should be added via the Notes field on prospect detail page
+
+**Files Changed:**
+- `src/app/calculator/calculator-client.tsx` - Prospect dropdown, down payment $ field
+- `src/app/calculator/page.tsx` - Fetch all prospects for dropdown
+- `src/app/prospects/[id]/page.tsx` - Fetch scenarios for prospect
+- `src/app/prospects/[id]/prospect-detail-client.tsx` - Saved scenarios section, save price button
+- `src/app/prospects/prospects-client.tsx` - Show listing price, remove feedback link
+- `src/app/prospects/actions.ts` - Better error propagation
+- `src/app/banking/banking-client.tsx` - Edit bank accounts, payee column
+- `src/app/banking/import/import-client.tsx` - Payee field in import
+- `src/app/banking/new/new-transaction-client.tsx` - Payee field
+- `src/app/banking/actions.ts` - updateBankAccountAction
+- `src/lib/database.ts` - Throw errors on update failures
+- `src/types/index.ts` - New transaction categories
 
 ---
 
