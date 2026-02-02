@@ -408,6 +408,26 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
     setBulkMemo('');
   };
 
+  const applyAllToChecked = () => {
+    setTransactions((prev) =>
+      prev.map((tx, i) => {
+        if (!checkedRows.has(i)) return tx;
+        return {
+          ...tx,
+          property_id: bulkPropertyId !== 'none' ? bulkPropertyId : tx.property_id,
+          category: bulkCategory || tx.category,
+          memo: bulkMemo || tx.memo,
+        };
+      })
+    );
+    // Reset bulk fields after applying
+    setBulkPropertyId('none');
+    setBulkCategory('');
+    setBulkMemo('');
+  };
+
+  const hasBulkSettings = bulkPropertyId !== 'none' || bulkCategory !== '';
+
   const handleImport = async () => {
     const selectedTransactions = transactions.filter((tx) => tx.selected);
     if (selectedTransactions.length === 0) return;
@@ -727,7 +747,7 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
               <div className="flex flex-col gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-blue-900">
-                    {checkedRows.size} selected
+                    {checkedRows.size} transaction{checkedRows.size > 1 ? 's' : ''} selected
                   </span>
                   <Button
                     variant="ghost"
@@ -758,13 +778,6 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
                         ))}
                       </SelectContent>
                     </Select>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => applyPropertyToChecked(bulkPropertyId)}
-                    >
-                      Apply
-                    </Button>
                   </div>
 
                   {/* Bulk Category */}
@@ -796,34 +809,28 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
                         </SelectGroup>
                       </SelectContent>
                     </Select>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => applyCategoryToChecked(bulkCategory)}
-                      disabled={!bulkCategory}
-                    >
-                      Apply
-                    </Button>
                   </div>
 
-                  {/* Bulk Memo */}
+                  {/* Bulk Memo (optional) */}
                   <div className="flex items-center gap-2">
                     <Label className="text-sm text-blue-700 whitespace-nowrap">Memo:</Label>
                     <Input
                       value={bulkMemo}
                       onChange={(e) => setBulkMemo(e.target.value)}
-                      placeholder="Add memo..."
-                      className="w-[160px] bg-white"
+                      placeholder="Optional..."
+                      className="w-[140px] bg-white"
                     />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => applyMemoToChecked(bulkMemo)}
-                      disabled={!bulkMemo}
-                    >
-                      Apply
-                    </Button>
                   </div>
+
+                  {/* Single Apply Button */}
+                  <Button
+                    size="sm"
+                    onClick={applyAllToChecked}
+                    disabled={!hasBulkSettings}
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Apply to Selected
+                  </Button>
                 </div>
               </div>
             )}
