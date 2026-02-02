@@ -1,4 +1,4 @@
-import { getProspect, getAllScenarios, getScenariosByProspect } from '@/lib/database';
+import { getProspect, getProspects, getAllScenarios, getScenariosByProspect } from '@/lib/database';
 import { CalculatorClient } from './calculator-client';
 
 export const dynamic = 'force-dynamic';
@@ -12,9 +12,12 @@ export default async function CalculatorPage({ searchParams }: CalculatorPagePro
   const prospectId = params.prospect;
   const scenarioId = params.scenario;
 
-  let prospect = null;
+  // Fetch all prospects for the dropdown
+  const allProspects = await getProspects();
+
+  let initialProspect = null;
   if (prospectId) {
-    prospect = await getProspect(prospectId);
+    initialProspect = await getProspect(prospectId);
   }
 
   // Fetch scenarios - if on a prospect page, get scenarios for that prospect
@@ -25,7 +28,8 @@ export default async function CalculatorPage({ searchParams }: CalculatorPagePro
 
   return (
     <CalculatorClient
-      prospect={prospect}
+      prospects={allProspects}
+      initialProspect={initialProspect}
       savedScenarios={scenarios}
       initialScenarioId={scenarioId}
     />

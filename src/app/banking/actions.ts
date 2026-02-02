@@ -1,6 +1,6 @@
 'use server';
 
-import { createTransaction, createTransactions, createBankAccount, deleteBankAccount } from '@/lib/database';
+import { createTransaction, createTransactions, createBankAccount, updateBankAccount, deleteBankAccount } from '@/lib/database';
 import { revalidatePath } from 'next/cache';
 import type { Transaction, BankAccount, BankAccountType } from '@/types';
 
@@ -59,6 +59,26 @@ export async function deleteBankAccountAction(
     return { success: true };
   } catch (error) {
     console.error('Error deleting bank account:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function updateBankAccountAction(
+  id: string,
+  input: Partial<BankAccountInput>
+): Promise<{ success: boolean; account?: BankAccount; error?: string }> {
+  try {
+    const account = await updateBankAccount(id, input);
+
+    if (!account) {
+      return { success: false, error: 'Failed to update bank account' };
+    }
+
+    revalidatePath('/banking');
+
+    return { success: true, account };
+  } catch (error) {
+    console.error('Error updating bank account:', error);
     return { success: false, error: 'An unexpected error occurred' };
   }
 }

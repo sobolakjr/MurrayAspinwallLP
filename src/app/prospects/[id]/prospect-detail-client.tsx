@@ -36,11 +36,13 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import type { Prospect, ProspectStatus } from '@/types';
+import type { SavedScenario } from '@/lib/database';
 import { updateProspectAction, deleteProspectAction, refreshApiDataAction } from '../actions';
 import { ApiConfirmDialog } from '@/components/api-confirm-dialog';
 
 interface ProspectDetailClientProps {
   prospect: Prospect;
+  savedScenarios?: SavedScenario[];
 }
 
 const statusColors: Record<ProspectStatus, 'default' | 'secondary' | 'outline' | 'destructive'> = {
@@ -59,7 +61,7 @@ const statusLabels: Record<ProspectStatus, string> = {
   lost: 'Lost',
 };
 
-export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
+export function ProspectDetailClient({ prospect, savedScenarios = [] }: ProspectDetailClientProps) {
   const router = useRouter();
   const [status, setStatus] = useState<ProspectStatus>(prospect.status);
   const [notes, setNotes] = useState(prospect.notes || '');
@@ -172,11 +174,15 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
         realtor_company: realtorCompany || null,
         api_data: updatedApiData,
       });
-      if (!result.success) {
+      if (result.success) {
+        router.refresh();
+      } else {
         console.error('Failed to save:', result.error);
+        alert(`Failed to save: ${result.error}`);
       }
     } catch (error) {
       console.error('Error saving:', error);
+      alert(`Error saving: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsSaving(false);
     }
@@ -404,15 +410,30 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
                   ${parseFloat(listingPrice || '0').toLocaleString()}
                 </p>
               ) : (
-                <div className="relative mt-1">
-                  <DollarSign className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                  <Input
-                    type="number"
-                    value={listingPrice}
-                    onChange={(e) => handleListingPriceChange(e.target.value)}
-                    placeholder="Enter listing price..."
-                    className="pl-10 text-2xl font-bold h-12"
-                  />
+                <div className="space-y-2">
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      value={listingPrice}
+                      onChange={(e) => handleListingPriceChange(e.target.value)}
+                      placeholder="Enter listing price..."
+                      className="pl-10 text-2xl font-bold h-12"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="w-full"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Save Price
+                  </Button>
                 </div>
               )}
               {listingPriceSource === 'fetched' && (
@@ -496,6 +517,57 @@ export function ProspectDetailClient({ prospect }: ProspectDetailClientProps) {
             )}
           </CardContent>
         </Card>
+
+        {/* Saved Scenarios */}
+        {savedScenarios.length > 0 && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calculator className="h-5 w-5" />
+                Saved Proforma Scenarios
+              </CardTitle>
+              <CardDescription>
+                Financial analysis scenarios linked to this property
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {savedScenarios.map((scenario) => {
+                  const data = scenario.scenario_data as Record<string, number | string | null>;
+                  const purchasePrice = typeof data.purchase_price === 'number' ? data.purchase_price : null;
+                  return (
+                    <Link
+                      key={scenario.id}
+                      href={`/calculator?prospect=${prospect.id}&scenario=${scenario.id}`}
+                      className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Badge variant={scenario.rental_type === 'ltr' ? 'default' : 'secondary'}>
+                          {scenario.rental_type === 'ltr' ? 'LTR' : 'STR'}
+                        </Badge>
+                        <div>
+                          <p className="font-medium">{scenario.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Created {new Date(scenario.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {purchasePrice !== null && (
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Purchase Price</p>
+                            <p className="font-medium">${purchasePrice.toLocaleString()}</p>
+                          </div>
+                        )}
+                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Realtor Info */}
         <Card>

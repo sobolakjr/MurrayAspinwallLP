@@ -49,6 +49,7 @@ interface ParsedTransaction {
   category: string;
   selected: boolean;
   property_id: string;
+  payee: string;
   memo: string;
   isDuplicate: boolean;
 }
@@ -76,6 +77,7 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
   const [checkedRows, setCheckedRows] = useState<Set<number>>(new Set());
   const [bulkPropertyId, setBulkPropertyId] = useState<string>('none');
   const [bulkCategory, setBulkCategory] = useState<string>('');
+  const [bulkPayee, setBulkPayee] = useState<string>('');
   const [bulkMemo, setBulkMemo] = useState<string>('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -276,6 +278,7 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
           category,
           selected: !isDuplicate, // Auto-deselect duplicates
           property_id: 'none',
+          payee: '',
           memo: '',
           isDuplicate,
         });
@@ -372,6 +375,14 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
     setCheckedRows(new Set());
   };
 
+  const updatePayee = (index: number, payee: string) => {
+    setTransactions((prev) =>
+      prev.map((tx, i) =>
+        i === index ? { ...tx, payee } : tx
+      )
+    );
+  };
+
   const updateMemo = (index: number, memo: string) => {
     setTransactions((prev) =>
       prev.map((tx, i) =>
@@ -416,6 +427,7 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
           ...tx,
           property_id: bulkPropertyId !== 'none' ? bulkPropertyId : tx.property_id,
           category: bulkCategory || tx.category,
+          payee: bulkPayee || tx.payee,
           memo: bulkMemo || tx.memo,
         };
       })
@@ -423,10 +435,11 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
     // Reset bulk fields after applying
     setBulkPropertyId('none');
     setBulkCategory('');
+    setBulkPayee('');
     setBulkMemo('');
   };
 
-  const hasBulkSettings = bulkPropertyId !== 'none' || bulkCategory !== '';
+  const hasBulkSettings = bulkPropertyId !== 'none' || bulkCategory !== '' || bulkPayee !== '';
 
   const handleImport = async () => {
     const selectedTransactions = transactions.filter((tx) => tx.selected);
@@ -444,6 +457,7 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
           type: tx.type,
           category: tx.category,
           description: tx.memo ? `${tx.description} | ${tx.memo}` : tx.description,
+          vendor: tx.payee || undefined,
         })),
         bankAccountId === 'none' ? null : bankAccountId
       );
@@ -811,6 +825,17 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
                     </Select>
                   </div>
 
+                  {/* Bulk Payee (optional) */}
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm text-blue-700 whitespace-nowrap">Payee:</Label>
+                    <Input
+                      value={bulkPayee}
+                      onChange={(e) => setBulkPayee(e.target.value)}
+                      placeholder="Optional..."
+                      className="w-[120px] bg-white"
+                    />
+                  </div>
+
                   {/* Bulk Memo (optional) */}
                   <div className="flex items-center gap-2">
                     <Label className="text-sm text-blue-700 whitespace-nowrap">Memo:</Label>
@@ -818,7 +843,7 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
                       value={bulkMemo}
                       onChange={(e) => setBulkMemo(e.target.value)}
                       placeholder="Optional..."
-                      className="w-[140px] bg-white"
+                      className="w-[120px] bg-white"
                     />
                   </div>
 
@@ -850,6 +875,7 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
                   <TableHead>Property</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Category</TableHead>
+                  <TableHead>Payee</TableHead>
                   <TableHead>Memo</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                 </TableRow>
@@ -948,9 +974,17 @@ export function ImportClient({ properties, bankAccounts, existingTransactions }:
                     </TableCell>
                     <TableCell>
                       <Input
+                        value={tx.payee}
+                        onChange={(e) => updatePayee(index, e.target.value)}
+                        placeholder="Payee..."
+                        className="w-[120px]"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
                         value={tx.memo}
                         onChange={(e) => updateMemo(index, e.target.value)}
-                        placeholder="Add memo..."
+                        placeholder="Memo..."
                         className="w-[120px]"
                       />
                     </TableCell>

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getProspect } from '@/lib/database';
+import { getProspect, getScenariosByProspect } from '@/lib/database';
 import { ProspectDetailClient } from './prospect-detail-client';
 
 export const dynamic = 'force-dynamic';
@@ -16,5 +16,7 @@ export default async function ProspectDetailPage({ params }: ProspectDetailPageP
     notFound();
   }
 
-  return <ProspectDetailClient prospect={prospect} />;
+  const scenarios = await getScenariosByProspect(id);
+
+  return <ProspectDetailClient prospect={prospect} savedScenarios={scenarios} />;
 }

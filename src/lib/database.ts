@@ -146,7 +146,9 @@ export async function createProspect(prospect: Omit<Prospect, 'id' | 'created_at
 }
 
 export async function updateProspect(id: string, updates: Partial<Prospect>) {
-  if (!supabase) return null;
+  if (!supabase) {
+    throw new Error('Supabase client not initialized');
+  }
 
   const { data, error } = await supabase
     .from('prospects')
@@ -157,7 +159,7 @@ export async function updateProspect(id: string, updates: Partial<Prospect>) {
 
   if (error) {
     console.error('Error updating prospect:', error);
-    return null;
+    throw new Error(error.message);
   }
   return data as Prospect;
 }

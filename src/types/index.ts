@@ -238,6 +238,7 @@ export const INCOME_CATEGORIES = [
   'Pet Fee',
   'Application Fee',
   'Security Deposit',
+  'Transfer to Checking',
   'Other Income',
 ] as const;
 
@@ -256,6 +257,9 @@ export const EXPENSE_CATEGORIES = [
   'Advertising',
   'Supplies',
   'Travel',
+  'Tax Prep',
+  'Transfer to Checking',
+  'Transfer to Money Market',
   'Other Expense',
 ] as const;
 

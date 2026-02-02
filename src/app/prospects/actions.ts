@@ -70,7 +70,7 @@ export async function updateProspectAction(
     const prospect = await updateProspect(id, updates);
 
     if (!prospect) {
-      return { success: false, error: 'Failed to update prospect' };
+      return { success: false, error: 'Failed to update prospect - no data returned' };
     }
 
     revalidatePath('/prospects');
@@ -80,7 +80,8 @@ export async function updateProspectAction(
     return { success: true, prospect };
   } catch (error) {
     console.error('Error updating prospect:', error);
-    return { success: false, error: 'An unexpected error occurred' };
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    return { success: false, error: errorMessage };
   }
 }
 

@@ -54,7 +54,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import type { Transaction, Property, BankAccount } from '@/types';
-import { createBankAccountAction, deleteBankAccountAction } from './actions';
+import { createBankAccountAction, updateBankAccountAction, deleteBankAccountAction } from './actions';
 
 interface BankingClientProps {
   initialTransactions: Transaction[];
@@ -70,11 +70,20 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<string>('all');
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+  const [isEditAccountOpen, setIsEditAccountOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newAccount, setNewAccount] = useState({
     name: '',
     institution: '',
     account_type: 'checking' as const,
+    account_number_last4: '',
+    current_balance: '',
+  });
+  const [editAccount, setEditAccount] = useState({
+    name: '',
+    institution: '',
+    account_type: 'checking' as string,
     account_number_last4: '',
     current_balance: '',
   });
@@ -128,6 +137,40 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
           account_number_last4: '',
           current_balance: '',
         });
+        router.refresh();
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditAccount = (account: BankAccount) => {
+    setEditingAccount(account);
+    setEditAccount({
+      name: account.name,
+      institution: account.institution || '',
+      account_type: account.account_type,
+      account_number_last4: account.account_number_last4 || '',
+      current_balance: account.current_balance?.toString() || '',
+    });
+    setIsEditAccountOpen(true);
+  };
+
+  const handleUpdateAccount = async () => {
+    if (!editingAccount) return;
+    setIsSubmitting(true);
+    try {
+      const result = await updateBankAccountAction(editingAccount.id, {
+        name: editAccount.name,
+        institution: editAccount.institution || null,
+        account_type: editAccount.account_type as any,
+        account_number_last4: editAccount.account_number_last4 || null,
+        current_balance: editAccount.current_balance ? parseFloat(editAccount.current_balance) : null,
+      });
+
+      if (result.success) {
+        setIsEditAccountOpen(false);
+        setEditingAccount(null);
         router.refresh();
       }
     } finally {
@@ -271,6 +314,88 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* Edit Account Dialog */}
+          <Dialog open={isEditAccountOpen} onOpenChange={setIsEditAccountOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Bank Account</DialogTitle>
+                <DialogDescription>
+                  Update account details and balance
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Account Name *</Label>
+                  <Input
+                    id="edit-name"
+                    value={editAccount.name}
+                    onChange={(e) => setEditAccount({ ...editAccount, name: e.target.value })}
+                    placeholder="e.g., PNC Checking"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-institution">Institution</Label>
+                  <Input
+                    id="edit-institution"
+                    value={editAccount.institution}
+                    onChange={(e) => setEditAccount({ ...editAccount, institution: e.target.value })}
+                    placeholder="e.g., PNC Bank"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-account_type">Account Type</Label>
+                    <Select
+                      value={editAccount.account_type}
+                      onValueChange={(value) => setEditAccount({ ...editAccount, account_type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="checking">Checking</SelectItem>
+                        <SelectItem value="savings">Savings</SelectItem>
+                        <SelectItem value="credit_card">Credit Card</SelectItem>
+                        <SelectItem value="investment">Investment</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-last4">Last 4 Digits</Label>
+                    <Input
+                      id="edit-last4"
+                      value={editAccount.account_number_last4}
+                      onChange={(e) => setEditAccount({ ...editAccount, account_number_last4: e.target.value })}
+                      placeholder="1234"
+                      maxLength={4}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-balance">Current Balance ($)</Label>
+                  <Input
+                    id="edit-balance"
+                    type="number"
+                    step="0.01"
+                    value={editAccount.current_balance}
+                    onChange={(e) => setEditAccount({ ...editAccount, current_balance: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditAccountOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdateAccount} disabled={!editAccount.name || isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {bankAccounts.length > 0 ? (
@@ -290,6 +415,10 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEditAccount(account)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteAccount(account.id)}>
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
@@ -463,6 +592,7 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Description</TableHead>
+                  <TableHead>Payee</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Account</TableHead>
                   <TableHead>Property</TableHead>
@@ -475,12 +605,10 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
                   <TableRow key={tx.id}>
                     <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <div>
-                        <p className="font-medium">{tx.description}</p>
-                        {tx.vendor && (
-                          <p className="text-sm text-muted-foreground">{tx.vendor}</p>
-                        )}
-                      </div>
+                      <p className="font-medium">{tx.description}</p>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{tx.vendor || '-'}</span>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{tx.category}</Badge>

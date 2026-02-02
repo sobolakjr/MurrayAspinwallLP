@@ -226,7 +226,7 @@ export function NewTransactionClient({ properties, bankAccounts }: NewTransactio
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="vendor">Vendor</Label>
+              <Label htmlFor="vendor">Payee</Label>
               <Input
                 id="vendor"
                 value={formData.vendor}

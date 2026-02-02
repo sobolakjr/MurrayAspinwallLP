@@ -68,7 +68,8 @@ import {
 } from 'recharts';
 
 interface CalculatorClientProps {
-  prospect: Prospect | null;
+  prospects: Prospect[];
+  initialProspect: Prospect | null;
   savedScenarios?: SavedScenario[];
   initialScenarioId?: string;
 }
@@ -122,7 +123,7 @@ const defaultSTRScenario: STRScenario = {
   adr_growth_rate: 2,
 };
 
-export function CalculatorClient({ prospect, savedScenarios = [], initialScenarioId }: CalculatorClientProps) {
+export function CalculatorClient({ prospects, initialProspect, savedScenarios = [], initialScenarioId }: CalculatorClientProps) {
   const [rentalType, setRentalType] = useState<RentalType>('ltr');
   const [ltrScenario, setLtrScenario] = useState(defaultLTRScenario);
   const [strScenario, setStrScenario] = useState(defaultSTRScenario);
@@ -133,6 +134,52 @@ export function CalculatorClient({ prospect, savedScenarios = [], initialScenari
   const [scenarioId, setScenarioId] = useState<string | null>(initialScenarioId || null);
   const [isSaving, setIsSaving] = useState(false);
   const [scenarios, setScenarios] = useState<SavedScenario[]>(savedScenarios);
+  const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(initialProspect);
+
+  // Helper to get display price from prospect
+  const getProspectPrice = (p: Prospect): number => {
+    const apiData = p.api_data as Record<string, unknown> | null;
+    const listingPrice = apiData?.listingPrice as number | null;
+    return listingPrice || Number(p.list_price) || 250000;
+  };
+
+  // Handle prospect selection
+  const handleProspectChange = (prospectId: string) => {
+    if (prospectId === 'none') {
+      setSelectedProspect(null);
+      return;
+    }
+    const p = prospects.find((pr) => pr.id === prospectId);
+    if (p) {
+      setSelectedProspect(p);
+      const purchasePrice = getProspectPrice(p);
+
+      // Get taxes from api_data if available
+      const apiData = p.api_data as Record<string, unknown> | null;
+      let annualTaxes = 3000;
+      if (apiData?.propertyTaxes) {
+        const taxData = apiData.propertyTaxes as Record<string, { total?: number }>;
+        const years = Object.keys(taxData).sort((a, b) => Number(b) - Number(a));
+        if (years.length > 0) {
+          annualTaxes = taxData[years[0]]?.total || 3000;
+        }
+      }
+
+      setLtrScenario((prev) => ({
+        ...prev,
+        prospect_id: p.id,
+        name: p.address,
+        purchase_price: purchasePrice,
+        taxes: annualTaxes,
+      }));
+      setStrScenario((prev) => ({
+        ...prev,
+        purchase_price: purchasePrice,
+        taxes: annualTaxes,
+      }));
+      setScenarioName(`${p.address} - ${rentalType.toUpperCase()}`);
+    }
+  };
 
   // Load a saved scenario
   const loadScenario = (scenario: SavedScenario) => {
@@ -230,38 +277,12 @@ export function CalculatorClient({ prospect, savedScenarios = [], initialScenari
     }
   }, [initialScenarioId, savedScenarios]);
 
-  // Pre-populate from prospect data
+  // Pre-populate from initial prospect data
   useEffect(() => {
-    if (prospect) {
-      const apiData = prospect.api_data as any;
-
-      let annualTaxes = 3000;
-      if (apiData?.propertyTaxes) {
-        const years = Object.keys(apiData.propertyTaxes).sort((a, b) => Number(b) - Number(a));
-        if (years.length > 0) {
-          annualTaxes = apiData.propertyTaxes[years[0]]?.total || 3000;
-        }
-      }
-
-      const purchasePrice = apiData?.listingPrice
-        ? Number(apiData.listingPrice)
-        : Number(prospect.list_price) || 250000;
-
-      setLtrScenario(prev => ({
-        ...prev,
-        prospect_id: prospect.id,
-        name: prospect.address,
-        purchase_price: purchasePrice,
-        taxes: annualTaxes,
-      }));
-
-      setStrScenario(prev => ({
-        ...prev,
-        purchase_price: purchasePrice,
-        taxes: annualTaxes,
-      }));
+    if (initialProspect && !selectedProspect) {
+      handleProspectChange(initialProspect.id);
     }
-  }, [prospect]);
+  }, [initialProspect]);
 
   const results = useMemo(() => {
     if (rentalType === 'ltr') {
@@ -304,7 +325,7 @@ export function CalculatorClient({ prospect, savedScenarios = [], initialScenari
 
       const result = await saveScenarioAction({
         id: scenarioId || undefined,
-        prospect_id: prospect?.id || null,
+        prospect_id: selectedProspect?.id || null,
         name: scenarioName,
         rental_type: rentalType,
         scenario_data: scenarioData as Record<string, unknown>,
@@ -351,19 +372,19 @@ export function CalculatorClient({ prospect, savedScenarios = [], initialScenari
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          {prospect && (
+          {selectedProspect && (
             <Button variant="ghost" size="icon" asChild>
-              <Link href={`/prospects/${prospect.id}`}>
+              <Link href={`/prospects/${selectedProspect.id}`}>
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
           )}
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Proforma Calculator</h1>
-            {prospect ? (
+            {selectedProspect ? (
               <p className="text-muted-foreground flex items-center gap-1">
                 <MapPin className="h-4 w-4" />
-                {prospect.address}, {prospect.city}, {prospect.state}
+                {selectedProspect.address}, {selectedProspect.city}, {selectedProspect.state}
               </p>
             ) : (
               <p className="text-muted-foreground">
@@ -373,6 +394,27 @@ export function CalculatorClient({ prospect, savedScenarios = [], initialScenari
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Prospect Selector */}
+          {prospects.length > 0 && (
+            <Select
+              value={selectedProspect?.id || 'none'}
+              onValueChange={handleProspectChange}
+            >
+              <SelectTrigger className="w-[220px]">
+                <Home className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Select prospect..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No Property Selected</SelectItem>
+                {prospects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.address}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           {/* Load Saved Scenarios */}
           {scenarios.length > 0 && (
             <Select
@@ -417,8 +459,8 @@ export function CalculatorClient({ prospect, savedScenarios = [], initialScenari
           <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => {
-                if (!scenarioName && prospect) {
-                  setScenarioName(`${prospect.address} - ${rentalType.toUpperCase()}`);
+                if (!scenarioName && selectedProspect) {
+                  setScenarioName(`${selectedProspect.address} - ${rentalType.toUpperCase()}`);
                 }
               }}>
                 <Save className="mr-2 h-4 w-4" />
@@ -442,9 +484,9 @@ export function CalculatorClient({ prospect, savedScenarios = [], initialScenari
                     placeholder="e.g., Conservative estimate"
                   />
                 </div>
-                {prospect && (
+                {selectedProspect && (
                   <p className="text-sm text-muted-foreground">
-                    Linked to: {prospect.address}
+                    Linked to: {selectedProspect.address}
                   </p>
                 )}
               </div>
@@ -486,27 +528,27 @@ export function CalculatorClient({ prospect, savedScenarios = [], initialScenari
       </Card>
 
       {/* Prospect Info Banner */}
-      {prospect && (
+      {selectedProspect && (
         <Card className="bg-muted/50">
           <CardContent className="py-4">
             <div className="flex flex-wrap gap-6 text-sm">
               <div>
                 <span className="text-muted-foreground">Property: </span>
-                <span className="font-medium">{prospect.address}</span>
+                <span className="font-medium">{selectedProspect.address}</span>
               </div>
-              {prospect.bedrooms && (
+              {selectedProspect.bedrooms && (
                 <div>
                   <span className="text-muted-foreground">Beds/Baths: </span>
-                  <span className="font-medium">{prospect.bedrooms}bd / {prospect.bathrooms}ba</span>
+                  <span className="font-medium">{selectedProspect.bedrooms}bd / {selectedProspect.bathrooms}ba</span>
                 </div>
               )}
-              {prospect.sqft && (
+              {selectedProspect.sqft && (
                 <div>
                   <span className="text-muted-foreground">Sqft: </span>
-                  <span className="font-medium">{prospect.sqft.toLocaleString()}</span>
+                  <span className="font-medium">{selectedProspect.sqft.toLocaleString()}</span>
                 </div>
               )}
-              <Badge variant="secondary">{prospect.property_type?.replace('_', ' ')}</Badge>
+              <Badge variant="secondary">{selectedProspect.property_type?.replace('_', ' ')}</Badge>
             </div>
           </CardContent>
         </Card>
@@ -560,21 +602,46 @@ export function CalculatorClient({ prospect, savedScenarios = [], initialScenari
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Interest Rate %</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={rentalType === 'ltr' ? ltrScenario.interest_rate : strScenario.interest_rate}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      if (rentalType === 'ltr') {
-                        updateLtrScenario('interest_rate', val);
-                      } else {
-                        updateStrScenario('interest_rate', val);
-                      }
-                    }}
-                  />
+                  <Label>Down Payment $</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      className="pl-8"
+                      value={Math.round(
+                        rentalType === 'ltr'
+                          ? (ltrScenario.purchase_price * ltrScenario.down_payment_pct) / 100
+                          : (strScenario.purchase_price * strScenario.down_payment_pct) / 100
+                      )}
+                      onChange={(e) => {
+                        const dollarVal = Number(e.target.value);
+                        const purchasePrice = rentalType === 'ltr' ? ltrScenario.purchase_price : strScenario.purchase_price;
+                        const pct = purchasePrice > 0 ? Math.round((dollarVal / purchasePrice) * 100 * 100) / 100 : 0;
+                        if (rentalType === 'ltr') {
+                          updateLtrScenario('down_payment_pct', pct);
+                        } else {
+                          updateStrScenario('down_payment_pct', pct);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Interest Rate %</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={rentalType === 'ltr' ? ltrScenario.interest_rate : strScenario.interest_rate}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    if (rentalType === 'ltr') {
+                      updateLtrScenario('interest_rate', val);
+                    } else {
+                      updateStrScenario('interest_rate', val);
+                    }
+                  }}
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">

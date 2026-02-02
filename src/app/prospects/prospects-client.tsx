@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, MoreHorizontal, Home, Eye, Calculator, Trash2, MessageSquare } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Home, Eye, Calculator, Trash2 } from 'lucide-react';
 import type { Prospect, ProspectStatus } from '@/types';
 
 interface ProspectsClientProps {
@@ -50,6 +50,13 @@ const statusLabels: Record<ProspectStatus, string> = {
   lost: 'Lost',
 };
 
+// Helper to get the display price (manual listing price if set, otherwise last sale price)
+function getDisplayPrice(prospect: Prospect): number {
+  const apiData = prospect.api_data as Record<string, unknown> | null;
+  const listingPrice = apiData?.listingPrice as number | null;
+  return listingPrice || Number(prospect.list_price) || 0;
+}
+
 export function ProspectsClient({ initialProspects }: ProspectsClientProps) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -65,7 +72,7 @@ export function ProspectsClient({ initialProspects }: ProspectsClientProps) {
 
   const activeCount = initialProspects.filter((p) => p.status === 'researching' || p.status === 'offer_made').length;
   const avgPrice = initialProspects.length > 0
-    ? Math.round(initialProspects.reduce((sum, p) => sum + (Number(p.list_price) || 0), 0) / initialProspects.length)
+    ? Math.round(initialProspects.reduce((sum, p) => sum + getDisplayPrice(p), 0) / initialProspects.length)
     : 0;
 
   return (
@@ -210,7 +217,7 @@ export function ProspectsClient({ initialProspects }: ProspectsClientProps) {
                       {prospect.bedrooms}bd / {prospect.bathrooms}ba
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      ${(Number(prospect.list_price) || 0).toLocaleString()}
+                      ${getDisplayPrice(prospect).toLocaleString()}
                     </TableCell>
                     <TableCell>{prospect.days_on_market}</TableCell>
                     <TableCell>
@@ -236,12 +243,6 @@ export function ProspectsClient({ initialProspects }: ProspectsClientProps) {
                             <Link href={`/calculator?prospect=${prospect.id}`}>
                               <Calculator className="mr-2 h-4 w-4" />
                               Run Proforma
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/prospects/${prospect.id}/feedback`}>
-                              <MessageSquare className="mr-2 h-4 w-4" />
-                              Add Feedback
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive">
