@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, Search, MoreHorizontal, Building2, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, Building2, Eye, Edit, Trash2, ChevronDown, ChevronRight, Archive } from 'lucide-react';
 import type { Property } from '@/types';
 
 interface PropertiesClientProps {
@@ -29,28 +29,37 @@ interface PropertiesClientProps {
 
 function formatStatus(status: string): string {
   const statusLabels: Record<string, string> = {
+    own: 'Owned',
     rented: 'Rented',
     listed_rent: 'Listed (Rent)',
     listed_sell: 'Listed (Sell)',
     reno_changeover: 'Reno/Changeover',
     listed_str: 'Listed (ST Rental)',
+    sold: 'Sold',
   };
   return statusLabels[status] || status;
 }
 
 export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
   const [search, setSearch] = useState('');
+  const [showSoldProperties, setShowSoldProperties] = useState(false);
   const properties = initialProperties.filter(
     (p) =>
       p.address.toLowerCase().includes(search.toLowerCase()) ||
       p.city.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Exclude sold properties from portfolio calculations
+  // Separate active and sold properties
   const activeProperties = properties.filter((p) => p.status !== 'sold');
+  const soldProperties = properties.filter((p) => p.status === 'sold');
+
+  // Portfolio calculations (active only)
   const portfolioValue = activeProperties.reduce((sum, p) => sum + (Number(p.current_value) || 0), 0);
   const totalEquity = activeProperties.reduce((sum, p) => sum + ((Number(p.current_value) || 0) - (Number(p.mortgage_balance) || 0)), 0);
   const monthlyMortgage = activeProperties.reduce((sum, p) => sum + (Number(p.mortgage_payment) || 0), 0);
+
+  // Sold properties stats
+  const totalSoldValue = soldProperties.reduce((sum, p) => sum + (Number(p.sold_price) || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -112,13 +121,13 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
         </Card>
       </div>
 
-      {/* Properties Table */}
+      {/* Active Properties Table */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>All Properties</CardTitle>
-              <CardDescription>Click on a property to view details</CardDescription>
+              <CardTitle>Active Properties</CardTitle>
+              <CardDescription>Your current rental portfolio</CardDescription>
             </div>
             <div className="relative w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -132,7 +141,7 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
           </div>
         </CardHeader>
         <CardContent>
-          {properties.length > 0 ? (
+          {activeProperties.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -146,7 +155,7 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {properties.map((property) => (
+                {activeProperties.map((property) => (
                   <TableRow key={property.id}>
                     <TableCell>
                       <Link
@@ -169,16 +178,10 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
                       {property.bedrooms}bd / {property.bathrooms}ba
                     </TableCell>
                     <TableCell className="text-right">
-                      {property.status === 'sold'
-                        ? `$${(Number(property.sold_price) || 0).toLocaleString()}`
-                        : `$${(Number(property.current_value) || 0).toLocaleString()}`
-                      }
+                      ${(Number(property.current_value) || 0).toLocaleString()}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-right">
-                      {property.status === 'sold'
-                        ? '-'
-                        : `$${((Number(property.current_value) || 0) - (Number(property.mortgage_balance) || 0)).toLocaleString()}`
-                      }
+                      ${((Number(property.current_value) || 0) - (Number(property.mortgage_balance) || 0)).toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -221,7 +224,7 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Building2 className="h-12 w-12 text-muted-foreground/50" />
-              <h3 className="mt-4 text-lg font-medium">No properties yet</h3>
+              <h3 className="mt-4 text-lg font-medium">No active properties</h3>
               <p className="text-sm text-muted-foreground">
                 Add your first property to get started
               </p>
@@ -235,6 +238,106 @@ export function PropertiesClient({ initialProperties }: PropertiesClientProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Sold Properties Section */}
+      {soldProperties.length > 0 && (
+        <Card>
+          <CardHeader
+            className="cursor-pointer"
+            onClick={() => setShowSoldProperties(!showSoldProperties)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {showSoldProperties ? (
+                  <ChevronDown className="h-5 w-5" />
+                ) : (
+                  <ChevronRight className="h-5 w-5" />
+                )}
+                <Archive className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <CardTitle>Sold Properties</CardTitle>
+                  <CardDescription>
+                    {soldProperties.length} {soldProperties.length === 1 ? 'property' : 'properties'} • Total: ${totalSoldValue.toLocaleString()}
+                  </CardDescription>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          {showSoldProperties && (
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Address</TableHead>
+                    <TableHead className="hidden md:table-cell">Type</TableHead>
+                    <TableHead className="hidden sm:table-cell">Beds/Baths</TableHead>
+                    <TableHead className="text-right">Sale Price</TableHead>
+                    <TableHead className="hidden sm:table-cell text-right">Sale Date</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {soldProperties.map((property) => (
+                    <TableRow key={property.id} className="opacity-75">
+                      <TableCell>
+                        <Link
+                          href={`/properties/${property.id}`}
+                          className="flex items-center gap-2 font-medium hover:underline"
+                        >
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <div>{property.address}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {property.city}, {property.state} {property.zip}
+                            </div>
+                          </div>
+                        </Link>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell capitalize">
+                        {property.property_type?.replace('_', ' ')}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {property.bedrooms}bd / {property.bathrooms}ba
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        ${(Number(property.sold_price) || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-right text-muted-foreground">
+                        {property.sold_date
+                          ? new Date(property.sold_date).toLocaleDateString()
+                          : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link href={`/properties/${property.id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/properties/${property.id}/edit`}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </Link>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          )}
+        </Card>
+      )}
     </div>
   );
 }
