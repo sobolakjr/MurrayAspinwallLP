@@ -56,7 +56,8 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import type { Transaction, Property, BankAccount } from '@/types';
-import { createBankAccountAction, updateBankAccountAction, deleteBankAccountAction } from './actions';
+import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '@/types';
+import { createBankAccountAction, updateBankAccountAction, deleteBankAccountAction, updateTransactionAction, deleteTransactionAction } from './actions';
 
 interface BankingClientProps {
   initialTransactions: Transaction[];
@@ -90,6 +91,18 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
     account_type: 'checking' as string,
     account_number_last4: '',
     current_balance: '',
+  });
+  const [isEditTxOpen, setIsEditTxOpen] = useState(false);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [editTxData, setEditTxData] = useState({
+    date: '',
+    amount: '',
+    type: 'expense' as 'income' | 'expense',
+    category: '',
+    description: '',
+    vendor: '',
+    property_id: 'none',
+    bank_account_id: 'none',
   });
 
   const getDateRange = () => {
@@ -230,6 +243,54 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
   const formatAccountType = (type: string) => {
     return type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
+
+  const handleEditTx = (tx: Transaction) => {
+    setEditingTx(tx);
+    setEditTxData({
+      date: tx.date.split('T')[0],
+      amount: String(tx.amount),
+      type: tx.type,
+      category: tx.category,
+      description: tx.description || '',
+      vendor: tx.vendor || '',
+      property_id: tx.property_id || 'none',
+      bank_account_id: tx.bank_account_id || 'none',
+    });
+    setIsEditTxOpen(true);
+  };
+
+  const handleUpdateTx = async () => {
+    if (!editingTx) return;
+    setIsSubmitting(true);
+    try {
+      const result = await updateTransactionAction(editingTx.id, {
+        date: editTxData.date,
+        amount: parseFloat(editTxData.amount),
+        type: editTxData.type,
+        category: editTxData.category,
+        description: editTxData.description,
+        vendor: editTxData.vendor || undefined,
+        property_id: editTxData.property_id === 'none' ? null : editTxData.property_id,
+        bank_account_id: editTxData.bank_account_id === 'none' ? null : editTxData.bank_account_id,
+      });
+      if (result.success) {
+        setIsEditTxOpen(false);
+        setEditingTx(null);
+        router.refresh();
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteTx = async (id: string) => {
+    if (confirm('Are you sure you want to delete this transaction?')) {
+      await deleteTransactionAction(id);
+      router.refresh();
+    }
+  };
+
+  const editTxCategories = editTxData.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
   const handleExportXLS = () => {
     const data = transactions.map((tx) => ({
@@ -677,7 +738,7 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead className="hidden md:table-cell">Description</TableHead>
-                  <TableHead className="hidden lg:table-cell">Payee</TableHead>
+                  <TableHead className="hidden md:table-cell">Payee</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead className="hidden lg:table-cell">Account</TableHead>
                   <TableHead className="hidden sm:table-cell">Property</TableHead>
@@ -692,7 +753,7 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
                     <TableCell className="hidden md:table-cell">
                       <p className="font-medium">{tx.description}</p>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
+                    <TableCell className="hidden md:table-cell">
                       <span className="text-sm">{tx.vendor || '-'}</span>
                     </TableCell>
                     <TableCell>
@@ -733,11 +794,11 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditTx(tx)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteTx(tx.id)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
                           </DropdownMenuItem>
@@ -775,6 +836,127 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Transaction Dialog */}
+      <Dialog open={isEditTxOpen} onOpenChange={setIsEditTxOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Transaction</DialogTitle>
+            <DialogDescription>Update transaction details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select
+                  value={editTxData.type}
+                  onValueChange={(value) => setEditTxData({ ...editTxData, type: value as 'income' | 'expense', category: '' })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="income">Income</SelectItem>
+                    <SelectItem value="expense">Expense</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select
+                  value={editTxData.category}
+                  onValueChange={(value) => setEditTxData({ ...editTxData, category: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editTxCategories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Amount ($)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editTxData.amount}
+                  onChange={(e) => setEditTxData({ ...editTxData, amount: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input
+                  type="date"
+                  value={editTxData.date}
+                  onChange={(e) => setEditTxData({ ...editTxData, date: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Bank Account</Label>
+                <Select
+                  value={editTxData.bank_account_id}
+                  onValueChange={(value) => setEditTxData({ ...editTxData, bank_account_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Account</SelectItem>
+                    {bankAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Property</Label>
+                <Select
+                  value={editTxData.property_id}
+                  onValueChange={(value) => setEditTxData({ ...editTxData, property_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Property</SelectItem>
+                    {properties.map((property) => (
+                      <SelectItem key={property.id} value={property.id}>{property.address}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input
+                value={editTxData.description}
+                onChange={(e) => setEditTxData({ ...editTxData, description: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Payee</Label>
+              <Input
+                value={editTxData.vendor}
+                onChange={(e) => setEditTxData({ ...editTxData, vendor: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditTxOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateTx} disabled={!editTxData.category || !editTxData.amount || isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

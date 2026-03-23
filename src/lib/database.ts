@@ -303,6 +303,23 @@ export async function createTransactions(transactions: Omit<Transaction, 'id' | 
   return data as Transaction[];
 }
 
+export async function updateTransaction(id: string, updates: Partial<Omit<Transaction, 'id' | 'created_at'>>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating transaction:', error);
+    throw new Error(error.message);
+  }
+  return data as Transaction;
+}
+
 export async function deleteTransaction(id: string) {
   if (!supabase) return false;
 

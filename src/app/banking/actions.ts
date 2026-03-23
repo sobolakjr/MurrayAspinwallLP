@@ -1,6 +1,6 @@
 'use server';
 
-import { createTransaction, createTransactions, createBankAccount, updateBankAccount, deleteBankAccount } from '@/lib/database';
+import { createTransaction, createTransactions, updateTransaction, deleteTransaction, createBankAccount, updateBankAccount, deleteBankAccount } from '@/lib/database';
 import { revalidatePath } from 'next/cache';
 import type { Transaction, BankAccount, BankAccountType } from '@/types';
 
@@ -155,6 +155,56 @@ export async function importTransactionsAction(
     return { success: true, count: created.length };
   } catch (error) {
     console.error('Error importing transactions:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function updateTransactionAction(
+  id: string,
+  input: TransactionInput
+): Promise<{ success: boolean; transaction?: Transaction; error?: string }> {
+  try {
+    const transaction = await updateTransaction(id, {
+      property_id: input.property_id === 'none' ? null : input.property_id,
+      bank_account_id: input.bank_account_id === 'none' ? null : (input.bank_account_id || null),
+      date: input.date,
+      amount: input.amount,
+      type: input.type,
+      category: input.category,
+      description: input.description,
+      vendor: input.vendor || null,
+    });
+
+    if (!transaction) {
+      return { success: false, error: 'Failed to update transaction' };
+    }
+
+    revalidatePath('/banking');
+    revalidatePath('/');
+
+    return { success: true, transaction };
+  } catch (error) {
+    console.error('Error updating transaction:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+export async function deleteTransactionAction(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const success = await deleteTransaction(id);
+
+    if (!success) {
+      return { success: false, error: 'Failed to delete transaction' };
+    }
+
+    revalidatePath('/banking');
+    revalidatePath('/');
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting transaction:', error);
     return { success: false, error: 'An unexpected error occurred' };
   }
 }
