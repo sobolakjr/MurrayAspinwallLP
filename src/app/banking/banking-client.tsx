@@ -118,6 +118,8 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
       }
       case 'this_year':
         return { start: new Date(now.getFullYear(), 0, 1), end: now };
+      case 'last_year':
+        return { start: new Date(now.getFullYear() - 1, 0, 1), end: new Date(now.getFullYear() - 1, 11, 31) };
       case 'custom':
         return {
           start: customStartDate ? new Date(customStartDate) : null,
@@ -676,6 +678,7 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
                   <SelectItem value="last_month">Last Month</SelectItem>
                   <SelectItem value="this_quarter">This Quarter</SelectItem>
                   <SelectItem value="this_year">This Year</SelectItem>
+                  <SelectItem value="last_year">Last Year</SelectItem>
                   <SelectItem value="custom">Custom Range</SelectItem>
                   <SelectItem value="all">All Time</SelectItem>
                 </SelectContent>
