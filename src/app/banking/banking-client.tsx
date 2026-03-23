@@ -52,7 +52,9 @@ import {
   CreditCard,
   Landmark,
   Loader2,
+  Download,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import type { Transaction, Property, BankAccount } from '@/types';
 import { createBankAccountAction, updateBankAccountAction, deleteBankAccountAction } from './actions';
 
@@ -69,6 +71,8 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<string>('all');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [isEditAccountOpen, setIsEditAccountOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
@@ -88,6 +92,29 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
     current_balance: '',
   });
 
+  const getDateRange = () => {
+    const now = new Date();
+    switch (dateRange) {
+      case 'this_month':
+        return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now };
+      case 'last_month':
+        return { start: new Date(now.getFullYear(), now.getMonth() - 1, 1), end: new Date(now.getFullYear(), now.getMonth(), 0) };
+      case 'this_quarter': {
+        const qStart = Math.floor(now.getMonth() / 3) * 3;
+        return { start: new Date(now.getFullYear(), qStart, 1), end: now };
+      }
+      case 'this_year':
+        return { start: new Date(now.getFullYear(), 0, 1), end: now };
+      case 'custom':
+        return {
+          start: customStartDate ? new Date(customStartDate) : null,
+          end: customEndDate ? new Date(customEndDate) : null,
+        };
+      default:
+        return { start: null, end: null };
+    }
+  };
+
   const transactions = initialTransactions.filter((tx) => {
     const matchesSearch =
       tx.description?.toLowerCase().includes(search.toLowerCase()) ||
@@ -96,7 +123,13 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
     const matchesType = typeFilter === 'all' || tx.type === typeFilter;
     const matchesCategory = categoryFilter === 'all' || tx.category === categoryFilter;
     const matchesAccount = accountFilter === 'all' || tx.bank_account_id === accountFilter;
-    return matchesSearch && matchesType && matchesCategory && matchesAccount;
+
+    const { start, end } = getDateRange();
+    const txDate = new Date(tx.date);
+    const matchesDate =
+      (!start || txDate >= start) && (!end || txDate <= new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59));
+
+    return matchesSearch && matchesType && matchesCategory && matchesAccount && matchesDate;
   });
 
   const totalIncome = transactions
@@ -198,6 +231,37 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
     return type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  const handleExportXLS = () => {
+    const data = transactions.map((tx) => ({
+      Date: new Date(tx.date).toLocaleDateString(),
+      Type: tx.type === 'income' ? 'Income' : 'Expense',
+      Category: tx.category,
+      Description: tx.description || '',
+      Payee: tx.vendor || '',
+      Property: tx.property_id ? propertyMap.get(tx.property_id) || '' : '',
+      Account: tx.bank_account_id ? accountMap.get(tx.bank_account_id) || '' : '',
+      Amount: tx.type === 'income' ? Number(tx.amount) : -Number(tx.amount),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 12 }, // Date
+      { wch: 10 }, // Type
+      { wch: 20 }, // Category
+      { wch: 30 }, // Description
+      { wch: 20 }, // Payee
+      { wch: 30 }, // Property
+      { wch: 20 }, // Account
+      { wch: 14 }, // Amount
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+    XLSX.writeFile(wb, `transactions_${dateRange === 'custom' ? `${customStartDate}_${customEndDate}` : dateRange}.xlsx`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -209,6 +273,10 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportXLS} disabled={transactions.length === 0}>
+            <Download className="mr-2 h-4 w-4" />
+            Export XLS
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/banking/import">
               <Upload className="mr-2 h-4 w-4" />
@@ -547,9 +615,26 @@ export function BankingClient({ initialTransactions, properties, bankAccounts }:
                   <SelectItem value="last_month">Last Month</SelectItem>
                   <SelectItem value="this_quarter">This Quarter</SelectItem>
                   <SelectItem value="this_year">This Year</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
                   <SelectItem value="all">All Time</SelectItem>
                 </SelectContent>
               </Select>
+              {dateRange === 'custom' && (
+                <>
+                  <Input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-[150px]"
+                  />
+                  <Input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-[150px]"
+                  />
+                </>
+              )}
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-[120px]">
                   <SelectValue placeholder="Type" />
